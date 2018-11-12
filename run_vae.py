@@ -6,7 +6,7 @@ from codebase import utils as ut
 from codebase.models.vae import VAE
 from codebase.train import train
 from pprint import pprint
-from torchvision import datasets, transforms
+from HourlyLoadDataset import HourlyLoad2017Dataset
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--z',         type=int, default=10,     help="Number of latent dimensions")
@@ -25,21 +25,24 @@ pprint(vars(args))
 print('Model name:', model_name)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-train_loader, labeled_subset, _ = ut.get_mnist_data(device, use_test_subset=True)
+# train_loader, labeled_subset, _ = ut.get_mnist_data(device, use_test_subset=True)
+train_loader = torch.utils.data.DataLoader(
+        HourlyLoad2017Dataset(root_dir="data/split", mode='train'),
+        batch_size=10, # TODO
+        shuffle=False) # TODO
 vae = VAE(z_dim=args.z, name=model_name).to(device)
 
 if args.train:
     writer = ut.prepare_writer(model_name, overwrite_existing=True)
     train(model=vae,
           train_loader=train_loader,
-          labeled_subset=labeled_subset,
           device=device,
           tqdm=tqdm.tqdm,
           writer=writer,
           iter_max=args.iter_max,
           iter_save=args.iter_save)
-    ut.evaluate_lower_bound(vae, labeled_subset, run_iwae=args.train == 2)
+    # ut.evaluate_lower_bound(vae, labeled_subset, run_iwae=args.train == 2)
 
 else:
     ut.load_model_by_name(vae, global_step=args.iter_max)
-    ut.evaluate_lower_bound(vae, labeled_subset, run_iwae=True)
+    # ut.evaluate_lower_bound(vae, labeled_subset, run_iwae=False)

@@ -11,11 +11,13 @@ class Encoder(nn.Module):
         self.z_dim = z_dim
         self.y_dim = y_dim
         self.net = nn.Sequential(
-            nn.Linear(784 + y_dim, 300),
+            nn.Linear(24 + y_dim, 64),
             nn.ELU(),
-            nn.Linear(300, 300),
+            nn.Linear(64, 64),
             nn.ELU(),
-            nn.Linear(300, 2 * z_dim),
+            nn.Linear(64, 32),
+            nn.ELU(),
+            nn.Linear(32, 2 * z_dim),
         )
 
     def encode(self, x, y=None):

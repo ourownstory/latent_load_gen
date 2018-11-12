@@ -8,6 +8,7 @@ from codebase.models.ssvae import SSVAE
 from codebase.models.vae import VAE
 from torch.nn import functional as F
 from torchvision import datasets, transforms
+from HourlyLoadDataset import HourlyLoad2017Dataset
 
 bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 

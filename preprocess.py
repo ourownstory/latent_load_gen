@@ -2,17 +2,22 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 import os
+from shutil import copyfile
 
 
-rerun_raw_processing = True
+run_raw_processing = True
+run_split = True
 num_days = 365
 daily_resolution = 24
 remove_missing_threshold = 3
+split = {"train": 0.7, "val": 0.15, "test": 0.15}
+path_raw = "data/raw/"
+path_processed = "data/processed/"
+path_split = "data/split"
+np.random.seed(0)
 
-if rerun_raw_processing:
-    data_in = "data/raw/"
-    data_out = "data/processed/"
-    raw = pd.read_csv(data_in + "dataport-export_hourly_use_car_EV-houses.csv")
+if run_raw_processing:
+    raw = pd.read_csv(path_raw + "dataport-export_hourly_use_car_EV-houses.csv")
     print(raw.head())
 
     num_ids = len(set(raw["dataid"]))
@@ -57,32 +62,67 @@ if rerun_raw_processing:
             df = pd.DataFrame()
             df["use"] = use[i, day, :]
             df["car"] = car[i, day, :]
-            directory = data_out + "/" + str(dataid) + "/"
+            directory = path_processed + "/" + str(dataid) + "/"
             if not os.path.exists(directory):
                 os.makedirs(directory)
             df.to_csv(directory + "{}.csv".format(day), index=False)
             # df = pd.DataFrame(car[i, i, :])
             # df.to_csv(data_out + "car_{}.csv".format(dataid), index=False)
 
-    with open(data_in + "dataids.csv", 'w') as f:
+    with open(path_raw + "dataids.csv", 'w') as f:
         f.write(",".join([str(i) for i in dataids]))
 
     df = pd.DataFrame(use_missing)
-    df.to_csv(data_in + "use_missing.csv", index=False)
+    df.to_csv(path_raw + "use_missing.csv", index=False)
     df = pd.DataFrame(car_missing)
-    df.to_csv(data_in + "car_missing.csv", index=False)
-else:
-    data_path = "data/raw/"
-    dataids = pd.read_csv(data_path + "dataids.csv", header=None).values[0]
+    df.to_csv(path_raw + "car_missing.csv", index=False)
+
+    # clean data
+    dataids = pd.read_csv(path_raw + "dataids.csv", header=None).values[0]
     print(dataids)
-    use_missing = pd.read_csv(data_path + "use_missing.csv").values
+    use_missing = pd.read_csv(path_raw + "use_missing.csv").values
     use_missing_average = use_missing.mean(-1)
     # print(use_missing_average.astype('int'))
     # remove all data_ids with more than x missing hourly measurements (on average)
     dataids_clean = dataids[use_missing_average < remove_missing_threshold]
     print(dataids_clean)
-    with open(data_path + "dataids_clean.csv", 'w') as f:
+    with open(path_raw + "dataids_clean.csv", 'w') as f:
         f.write(",".join([str(i) for i in dataids_clean]))
+
+if run_split:
+    dataids_clean = pd.read_csv(os.path.join(path_raw, "dataids_clean.csv"), header=None).values[0]
+    np.random.shuffle(dataids_clean)
+    val_idx = int(len(dataids_clean) * split["train"])
+    test_idx = int(len(dataids_clean) * (split["train"] + split["val"]))
+    # print(val_idx)
+    # print(test_idx)
+    split_dataids = {
+        'train': dataids_clean[:val_idx],
+        'val': dataids_clean[val_idx:test_idx],
+        'test': dataids_clean[test_idx:]
+        }
+    print(split_dataids)
+    for mode, dataids in split_dataids.items():
+        mode_dir = os.path.join(path_split, mode)
+        # print(mode_dir)
+        if not os.path.exists(mode_dir):
+            os.makedirs(mode_dir)
+        for dataid in [str(x) for x in dataids]:
+            subdir = os.path.join(mode_dir, dataid)
+            # print(subdir)
+            if not os.path.exists(subdir):
+                os.makedirs(subdir)
+            # print(os.path.join(path_processed, dataid))
+            # print(next(os.walk(os.path.join(path_processed, dataid)))[2])
+            for file_name in next(os.walk(os.path.join(path_processed, dataid)))[2]:
+                src = os.path.join(path_processed, dataid, file_name)
+                dst = os.path.join(subdir, file_name)
+                # print(src, dst)
+                copyfile(src, dst)
+
+
+
+
 
 
 
