@@ -6,7 +6,7 @@ import pandas as pd
 class HourlyLoad2017Dataset(Dataset):
     """hourly aggregate load of a day dataset"""
 
-    def __init__(self, root_dir, mode='train'):
+    def __init__(self, root_dir, mode='train', in_memory=False):
         """
         Args:
             root_dir (string): Directory.
@@ -22,14 +22,24 @@ class HourlyLoad2017Dataset(Dataset):
             # print(next(os.walk(os.path.join(self.root_dir, subdir)))[2])
             for file_name in next(os.walk(os.path.join(self.root_dir, subdir)))[2]:
                 self.csv_list.append((subdir, file_name))
+        self.in_memory = in_memory
+        if in_memory:
+            self.use = []
+            for idx in range(len(self.csv_list)):
+                csv = pd.read_csv(os.path.join(self.root_dir, *self.csv_list[idx]))
+                self.use.append(csv["use"].values)
 
     def __len__(self):
         return len(self.csv_list)
 
     def __getitem__(self, idx):
-        csv = pd.read_csv(os.path.join(self.root_dir, *self.csv_list[idx]))
-        sample = {
-            "use": csv["use"].values,
-            "car": csv["car"].values
-        }
+        if self.in_memory:
+            sample = self.use[idx]
+        else:
+            csv = pd.read_csv(os.path.join(self.root_dir, *self.csv_list[idx]))
+            # sample = {
+            #     "use": csv["use"].values,
+            #     "car": csv["car"].values
+            # }
+            sample = csv["use"].values
         return sample

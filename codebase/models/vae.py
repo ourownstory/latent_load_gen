@@ -4,17 +4,20 @@ from codebase.models import nns
 from torch import nn
 from torch.nn import functional as F
 
+
 class VAE(nn.Module):
-    def __init__(self, nn='v1', name='vae', z_dim=2):
+    def __init__(self, nn='v1', name='vae', z_dim=2, x_dim=24, warmup=False):
         super().__init__()
         self.name = name
         self.z_dim = z_dim
+        self.x_dim = x_dim
+        self.warmup = warmup
         # Small note: unfortunate name clash with torch.nn
         # nn here refers to the specific architecture file found in
         # codebase/models/nns/*.py
         nn = getattr(nns, nn)
-        self.enc = nn.Encoder(self.z_dim)
-        self.dec = nn.Decoder(self.z_dim)
+        self.enc = nn.Encoder(self.z_dim, self.x_dim)
+        self.dec = nn.Decoder(self.z_dim, self.x_dim)
 
         # Set prior as fixed parameter attached to Module
         self.z_prior_m = torch.nn.Parameter(torch.zeros(1), requires_grad=False)
@@ -27,6 +30,7 @@ class VAE(nn.Module):
 
         Args:
             x: tensor: (batch, dim): Observations
+            fixed_var: tensor: bool: whether to simplify loss to a MSE
 
         Returns:
             nelbo: tensor: (): Negative evidence lower bound
@@ -45,7 +49,7 @@ class VAE(nn.Module):
         # sample z(1) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)
         # decode
-        logits = self.dec.decode(z)
+        mu, var = self.dec.decode(z)
 
         # KL Term
         kl_elem = ut.kl_normal(qm, qv, self.z_prior_m, self.z_prior_v)
@@ -53,8 +57,8 @@ class VAE(nn.Module):
         kl = kl_elem.mean(-1)
 
         # Rec Term
-        log_prob = ut.log_bernoulli_with_logits(x, logits)
-        rec = -log_prob.mean(-1)
+        # rec = ut.mse_loss(x, logits).mean(-1)
+        rec = ut.nlog_prob_normal(mu=mu, y=x, var=var, fixed_var=self.warmup).mean(-1)
 
         # negative ELBO
         nelbo = kl + rec
@@ -128,14 +132,6 @@ class VAE(nn.Module):
 
         return loss, summaries
 
-    def sample_sigmoid(self, batch):
-        z = self.sample_z(batch)
-        return self.compute_sigmoid_given(z)
-
-    def compute_sigmoid_given(self, z):
-        logits = self.dec.decode(z)
-        return torch.sigmoid(logits)
-
     def sample_z(self, batch):
         return ut.sample_gaussian(
             self.z_prior[0].expand(batch, self.z_dim),
@@ -146,4 +142,4 @@ class VAE(nn.Module):
         return self.sample_x_given(z)
 
     def sample_x_given(self, z):
-        return torch.bernoulli(self.compute_sigmoid_given(z))
+        return self.dec.decode(z)

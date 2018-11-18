@@ -10,18 +10,23 @@ from torch.nn import functional as F
 from torchvision import datasets, transforms
 from HourlyLoadDataset import HourlyLoad2017Dataset
 
-bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 
-################################################################################
-# Please familiarize yourself with the code below.
-#
-# Note that the notation is
-# argument: argument_type: argument_shape
-#
-# Furthermore, the expected argument_shape is only a guideline. You're free to
-# pass in inputs that violate the expected argument_shape provided you know
-# what you're doing
-################################################################################
+bce = torch.nn.BCEWithLogitsLoss(reduction='none')
+mse = torch.nn.MSELoss(reduction='none')
+
+
+def nlog_prob_normal(mu, y, var=None, fixed_var=False):
+    diff = y - mu
+    # makes it just MSE
+    cost = torch.mul(diff, diff)
+    if not fixed_var:
+        # return actual log-likelihood
+        cost = torch.div(torch.mul(diff, diff), var)
+        cost += torch.log(var)
+        # these two last terms would make it a correct log(p), but are not required for MLE
+        # cost += log_2pi
+        # cost *= 0.5
+    return cost.mean()
 
 
 def sample_gaussian(m, v):
@@ -137,6 +142,20 @@ def log_bernoulli_with_logits(x, logits):
     return log_prob
 
 
+def mse_loss(x, logits):
+    """
+    Computes the log probability of a Bernoulli given its logits
+
+    Args:
+        x: tensor: (batch, dim): Observation
+        logits: tensor: (batch, dim): estimates
+
+    Return:
+        mse: tensor: (batch,): average MSE
+    """
+    return mse(input=logits, target=x).mean(-1)
+
+
 def kl_cat(q, log_q, log_p):
     """
     Computes the KL divergence between two categorical distributions
@@ -239,7 +258,42 @@ def load_model_by_name(model, global_step):
 ################################################################################
 
 
-def evaluate_lower_bound(model, labeled_test_subset, run_iwae=True):
+def evaluate_lower_bound(model, eval_set, run_iwae=True):
+    check_model = isinstance(model, VAE) or isinstance(model, GMVAE)
+    assert check_model, "This function is only intended for VAE and GMVAE"
+
+    print('*' * 80)
+    print("LOG-LIKELIHOOD LOWER BOUNDS ON TEST SUBSET")
+    print('*' * 80)
+
+    x = eval_set
+    torch.manual_seed(0)
+
+    def detach_torch_tuple(args):
+        return (v.detach() for v in args)
+
+    def compute_metrics(fn, repeat):
+        metrics = [0, 0, 0]
+        for _ in range(repeat):
+            niwae, kl, rec = detach_torch_tuple(fn(x))
+            metrics[0] += niwae / repeat
+            metrics[1] += kl / repeat
+            metrics[2] += rec / repeat
+        return metrics
+
+    # Run multiple times to get low-var estimate
+    nelbo, kl, rec = compute_metrics(model.negative_elbo_bound, 100)
+    print("NELBO: {}. KL: {}. Rec: {}".format(nelbo, kl, rec))
+
+    if run_iwae:
+        for iw in [1, 10, 100, 1000]:
+            repeat = max(100 // iw, 1) # Do at least 100 iterations
+            fn = lambda x: model.negative_iwae_bound(x, iw)
+            niwae, kl, rec = compute_metrics(fn, repeat)
+            print("Negative IWAE-{}: {}".format(iw, niwae))
+
+
+def evaluate_lower_bound_mnist(model, labeled_test_subset, run_iwae=True):
     check_model = isinstance(model, VAE) or isinstance(model, GMVAE)
     assert check_model, "This function is only intended for VAE and GMVAE"
 
@@ -331,6 +385,32 @@ def reset_weights(m):
         m.reset_parameters()
     except AttributeError:
         pass
+
+
+def get_load_data(device, batch_size, in_memory=False):
+    train_loader = torch.utils.data.DataLoader(
+        HourlyLoad2017Dataset(root_dir="data/split", mode='train', in_memory=in_memory),
+        batch_size=batch_size,
+        shuffle=True)
+
+    val = HourlyLoad2017Dataset(root_dir="data/split", mode='val', in_memory=in_memory)
+    test = HourlyLoad2017Dataset(root_dir="data/split", mode='test', in_memory=in_memory)
+
+    if in_memory:
+        val_set = val.use
+        test_set = test.use
+    else:
+        val_set = []
+        test_set = []
+        for i in range(len(val)//10):
+            val_set.append(val[i]["use"])
+        for i in range(len(test)//10):
+            test_set.append(test[i]["use"])
+
+    val_set = torch.tensor(val_set, dtype=torch.float).to(device)
+    test_set = torch.tensor(test_set, dtype=torch.float).to(device)
+
+    return train_loader, val_set, test_set
 
 
 def get_mnist_data(device, use_test_subset=True):

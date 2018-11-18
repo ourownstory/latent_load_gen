@@ -11,7 +11,7 @@ from image_grid import make_image_grid
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--z',         type=int, default=10,    help="Number of latent dimensions")
-parser.add_argument('--k',         type=int, default=500,   help="Number mixture components in MoG prior")
+parser.add_argument('--k',         type=int, default=100,   help="Number mixture components in MoG prior")
 parser.add_argument('--iter_max',  type=int, default=20000, help="Number of training iterations")
 parser.add_argument('--iter_save', type=int, default=10000, help="Save model every n iterations")
 parser.add_argument('--run',       type=int, default=0,     help="Run ID. In case you want to run replicates")

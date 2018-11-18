@@ -4,16 +4,13 @@ from codebase import utils as ut
 from codebase.models import nns
 from torch import nn
 from torch.nn import functional as F
+from codebase.models.vae import VAE
 
-class GMVAE(nn.Module):
-    def __init__(self, nn='v1', z_dim=2, k=500, name='gmvae'):
-        super().__init__()
-        self.name = name
+
+class GMVAE(VAE):
+    def __init__(self, nn='v1', name='gmvae', z_dim=2, x_dim=24, warmup=False, k=500):
+        super().__init__(nn, name, z_dim, x_dim, warmup)
         self.k = k
-        self.z_dim = z_dim
-        nn = getattr(nns, nn)
-        self.enc = nn.Encoder(self.z_dim)
-        self.dec = nn.Decoder(self.z_dim)
 
         # Mixture of Gaussians prior
         self.z_pre = torch.nn.Parameter(torch.randn(1, 2 * self.k, self.z_dim)
@@ -33,18 +30,7 @@ class GMVAE(nn.Module):
             kl: tensor: (): ELBO KL divergence to prior
             rec: tensor: (): ELBO Reconstruction term
         """
-        ################################################################################
-        # TODO: Modify/complete the code here
-        # Compute negative Evidence Lower Bound and its KL and Rec decomposition
-        #
-        # To help you start, we have computed the mixture of Gaussians prior
-        # prior = (m_mixture, v_mixture) for you, where
-        # m_mixture and v_mixture each have shape (1, self.k, self.z_dim)
-        #
-        # Note that nelbo = kl + rec
-        #
-        # Outputs should all be scalar
-        ################################################################################
+
         # Compute the mixture of Gaussian prior
         prior_m, prior_v = ut.gaussian_parameters(self.z_pre, dim=1)
 
@@ -55,8 +41,9 @@ class GMVAE(nn.Module):
 
         # sample z(1) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)
+
         # decode
-        logits = self.dec.decode(z)
+        mu, var = self.dec.decode(z)
 
         # KL Term
         log_prob_net = ut.log_normal(z, qm, qv)
@@ -67,15 +54,11 @@ class GMVAE(nn.Module):
         kl = kl_elem.mean(-1)
 
         # Rec Term
-        log_prob = ut.log_bernoulli_with_logits(x, logits)
-        rec = -log_prob.mean(-1)
+        rec = ut.nlog_prob_normal(mu=mu, y=x, var=var, fixed_var=self.warmup).mean(-1)
 
         # negative ELBO
         nelbo = kl + rec
 
-        ################################################################################
-        # End of code modification
-        ################################################################################
         return nelbo, kl, rec
 
     def negative_iwae_bound(self, x, iw):
@@ -92,13 +75,7 @@ class GMVAE(nn.Module):
             kl: tensor: (): ELBO KL divergence to prior
             rec: tensor: (): ELBO Reconstruction term
         """
-        ################################################################################
-        # TODO: Modify/complete the code here
-        # Compute niwae (negative IWAE) with iw importance samples, and the KL
-        # and Rec decomposition of the Evidence Lower Bound
-        #
-        # Outputs should all be scalar
-        ################################################################################
+
         # Compute the mixture of Gaussian prior
         prior_m, prior_v = ut.gaussian_parameters(self.z_pre, dim=1)
 
@@ -131,41 +108,4 @@ class GMVAE(nn.Module):
         rec = -log_prob.mean(1).mean(-1)
         kl = kl_elem.mean(1).mean(-1)
 
-        ################################################################################
-        # End of code modification
-        ################################################################################
         return niwae, kl, rec
-
-    def loss(self, x):
-        nelbo, kl, rec = self.negative_elbo_bound(x)
-        loss = nelbo
-
-        summaries = dict((
-            ('train/loss', nelbo),
-            ('gen/elbo', -nelbo),
-            ('gen/kl_z', kl),
-            ('gen/rec', rec),
-        ))
-
-        return loss, summaries
-
-    def sample_sigmoid(self, batch):
-        z = self.sample_z(batch)
-        return self.compute_sigmoid_given(z)
-
-    def compute_sigmoid_given(self, z):
-        logits = self.dec.decode(z)
-        return torch.sigmoid(logits)
-
-    def sample_z(self, batch):
-        m, v = ut.gaussian_parameters(self.z_pre.squeeze(0), dim=0)
-        idx = torch.distributions.categorical.Categorical(self.pi).sample((batch,))
-        m, v = m[idx], v[idx]
-        return ut.sample_gaussian(m, v)
-
-    def sample_x(self, batch):
-        z = self.sample_z(batch)
-        return self.sample_x_given(z)
-
-    def sample_x_given(self, z):
-        return torch.bernoulli(self.compute_sigmoid_given(z))

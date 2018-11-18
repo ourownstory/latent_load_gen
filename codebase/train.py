@@ -10,14 +10,18 @@ def train(model, train_loader, device, tqdm, writer,
     # Optimization
     if reinitialize:
         model.apply(ut.reset_weights)
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
     i = 0
+    # model.warmup = True
     with tqdm(total=iter_max) as pbar:
         while True:
             for batch_idx, sample in enumerate(train_loader):
                 i += 1  # i is num of gradient steps taken by end of loop iteration
+                if i == (iter_max//4):
+                    # start learning variance
+                    model.warmup = False
                 optimizer.zero_grad()
-                x = torch.tensor(sample['use']).float().to(device)
+                x = torch.tensor(sample).float().to(device)
                 # TODO: why use bernoulli here (from hw code)??
                 # x = torch.bernoulli(x.to(device).reshape(x.size(0), -1))
                 loss, summaries = model.loss(x)
