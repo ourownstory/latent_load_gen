@@ -15,14 +15,14 @@ bce = torch.nn.BCEWithLogitsLoss(reduction='none')
 mse = torch.nn.MSELoss(reduction='none')
 
 
-def nlog_prob_normal(mu, y, var=None, fixed_var=False):
+def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
     diff = y - mu
     # makes it just MSE
     cost = torch.mul(diff, diff)
     if not fixed_var:
         # return actual log-likelihood
         cost = torch.div(torch.mul(diff, diff), var)
-        cost += torch.log(var)
+        cost += var_pen*torch.log(var)
         # these two last terms would make it a correct log(p), but are not required for MLE
         # cost += log_2pi
         # cost *= 0.5
@@ -258,7 +258,7 @@ def load_model_by_name(model, global_step):
 ################################################################################
 
 
-def evaluate_lower_bound(model, eval_set, run_iwae=True):
+def evaluate_lower_bound(model, eval_set, run_iwae=False):
     check_model = isinstance(model, VAE) or isinstance(model, GMVAE)
     assert check_model, "This function is only intended for VAE and GMVAE"
 

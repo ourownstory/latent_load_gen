@@ -8,13 +8,13 @@ from codebase.models.vae import VAE
 
 
 class GMVAE(VAE):
-    def __init__(self, nn='v1', name='gmvae', z_dim=2, x_dim=24, warmup=False, k=500):
-        super().__init__(nn, name, z_dim, x_dim, warmup)
+    def __init__(self, nn='v1', name='gmvae', z_dim=2, x_dim=24, warmup=False, k=500, var_pen=1):
+        super().__init__(nn, name, z_dim, x_dim, warmup, var_pen=var_pen)
         self.k = k
 
         # Mixture of Gaussians prior
-        self.z_pre = torch.nn.Parameter(torch.randn(1, 2 * self.k, self.z_dim)
-                                        / np.sqrt(self.k * self.z_dim))
+        self.z_pre = torch.nn.Parameter(
+            torch.randn(1, 2 * self.k, self.z_dim) / np.sqrt(self.k * self.z_dim))
         # Uniform weighting
         self.pi = torch.nn.Parameter(torch.ones(k) / k, requires_grad=False)
 
@@ -54,7 +54,9 @@ class GMVAE(VAE):
         kl = kl_elem.mean(-1)
 
         # Rec Term
-        rec = ut.nlog_prob_normal(mu=mu, y=x, var=var, fixed_var=self.warmup).mean(-1)
+        rec = ut.nlog_prob_normal(
+            mu=mu, y=x, var=var, fixed_var=self.warmup, var_pen=self.var_pen
+        ).mean(-1)
 
         # negative ELBO
         nelbo = kl + rec

@@ -4,15 +4,17 @@ from codebase import utils as ut
 from torch import optim
 
 
-def train(model, train_loader, device, tqdm, writer,
+def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones,
           iter_max=np.inf, iter_save=np.inf,
           model_name='model', reinitialize=False):
     # Optimization
     if reinitialize:
         model.apply(ut.reset_weights)
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=lr_gamma)
     i = 0
     # model.warmup = True
+    # print("warmup", model.warmup)
     with tqdm(total=iter_max) as pbar:
         while True:
             for batch_idx, sample in enumerate(train_loader):
@@ -28,6 +30,7 @@ def train(model, train_loader, device, tqdm, writer,
 
                 loss.backward()
                 optimizer.step()
+                scheduler.step()
 
                 # Feel free to modify the progress bar
                 pbar.set_postfix(loss='{:.2e}'.format(loss))
@@ -40,6 +43,8 @@ def train(model, train_loader, device, tqdm, writer,
                 # Save model
                 if i % iter_save == 0:
                     ut.save_model_by_name(model, i)
+                    # print(optimizer.param_groups[0]['lr'])
+                    # print("warmup", model.warmup)
 
                 if i == iter_max:
                     return

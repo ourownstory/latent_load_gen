@@ -6,12 +6,13 @@ from torch.nn import functional as F
 
 
 class VAE(nn.Module):
-    def __init__(self, nn='v1', name='vae', z_dim=2, x_dim=24, warmup=False):
+    def __init__(self, nn='v1', name='vae', z_dim=2, x_dim=24, warmup=False, var_pen=1):
         super().__init__()
         self.name = name
         self.z_dim = z_dim
         self.x_dim = x_dim
         self.warmup = warmup
+        self.var_pen = var_pen
         # Small note: unfortunate name clash with torch.nn
         # nn here refers to the specific architecture file found in
         # codebase/models/nns/*.py
@@ -58,7 +59,9 @@ class VAE(nn.Module):
 
         # Rec Term
         # rec = ut.mse_loss(x, logits).mean(-1)
-        rec = ut.nlog_prob_normal(mu=mu, y=x, var=var, fixed_var=self.warmup).mean(-1)
+        rec = ut.nlog_prob_normal(
+            mu=mu, y=x, var=var, fixed_var=self.warmup, var_pen=self.var_pen
+        ).mean(-1)
 
         # negative ELBO
         nelbo = kl + rec
@@ -143,3 +146,7 @@ class VAE(nn.Module):
 
     def sample_x_given(self, z):
         return self.dec.decode(z)
+
+    def set_to_eval(self):
+        self.warmup = False
+        self.var_pen = 1
