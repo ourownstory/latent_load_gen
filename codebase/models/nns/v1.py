@@ -15,8 +15,6 @@ class Encoder(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(x_dim + y_dim, 32),
             nn.ELU(),
-            # nn.Linear(64, 64),
-            # nn.ELU(),
             nn.Linear(32, 32),
             nn.ELU(),
             nn.Linear(32, 32),
@@ -44,8 +42,6 @@ class Decoder(nn.Module):
             nn.ELU(),
             nn.Linear(32, 32),
             nn.ELU(),
-            # nn.Linear(64, 64),
-            # nn.ELU(),
         )
         self.mu_linear = nn.Linear(32, x_dim)
         self.var_linear = nn.Linear(32, x_dim)

@@ -4,7 +4,7 @@ from codebase import utils as ut
 from torch import optim
 
 
-def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones,
+def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones, iw,
           iter_max=np.inf, iter_save=np.inf,
           model_name='model', reinitialize=False):
     # Optimization
@@ -24,9 +24,8 @@ def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones
                     model.warmup = False
                 optimizer.zero_grad()
                 x = torch.tensor(sample).float().to(device)
-                # TODO: why use bernoulli here (from hw code)??
-                # x = torch.bernoulli(x.to(device).reshape(x.size(0), -1))
-                loss, summaries = model.loss(x)
+
+                loss, summaries = model.loss(x, iw)
 
                 loss.backward()
                 optimizer.step()
@@ -39,6 +38,10 @@ def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones
                 # Log summaries
                 if i % 50 == 0:
                     ut.log_summaries(writer, summaries, i)
+
+                # # print summaries
+                # if i % 1000 == 0:
+                #     print(summaries)
 
                 # Save model
                 if i % iter_save == 0:
