@@ -39,15 +39,12 @@ def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones
                 if i % 50 == 0:
                     ut.log_summaries(writer, summaries, i)
 
-                # # print summaries
-                # if i % 1000 == 0:
-                #     print(summaries)
-
                 # Save model
                 if i % iter_save == 0:
                     ut.save_model_by_name(model, i)
                     # print(optimizer.param_groups[0]['lr'])
                     # print("warmup", model.warmup)
+                    print("\n", summaries)
 
                 if i == iter_max:
                     return

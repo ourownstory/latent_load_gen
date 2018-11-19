@@ -10,16 +10,20 @@ from HourlyLoadDataset import HourlyLoad2017Dataset
 def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
     diff = y - mu
     # makes it just MSE
-    cost = torch.mul(diff, diff)
-    if not fixed_var:
+    mse = torch.mul(diff, diff)
+    if fixed_var:
+        var_cost = torch.zeros(*y.shape)
+    else:
         # return actual log-likelihood
-        cost = torch.div(torch.mul(diff, diff), var)
-        cost += var_pen*torch.log(var)
+        mse = torch.div(mse, var)
+        var_cost = var_pen*torch.log(var)
         # these two last terms would make it a correct log(p), but are not required for MLE
         # cost += log_2pi
         # cost *= 0.5
-    cost = cost.sum(-1)
-    return cost
+    mse = mse.sum(-1)
+    var_cost = var_cost.sum(-1)
+    cost = mse + var_cost
+    return cost, mse, var_cost
 
 
 def sample_gaussian(m, v):
@@ -177,23 +181,25 @@ def evaluate_lower_bound(model, eval_set, run_iwae=False):
         return (v.detach() for v in args)
 
     def compute_metrics(fn, repeat):
-        metrics = [0, 0, 0]
+        metrics = [0, 0, 0, 0, 0]
         for _ in range(repeat):
-            niwae, kl, rec = detach_torch_tuple(fn(x))
+            niwae, kl, rec, rec_mse, rec_var = detach_torch_tuple(fn(x))
             metrics[0] += niwae / repeat
             metrics[1] += kl / repeat
             metrics[2] += rec / repeat
+            metrics[3] += rec_mse / repeat
+            metrics[4] += rec_var / repeat
         return metrics
 
     # Run multiple times to get low-var estimate
-    nelbo, kl, rec = compute_metrics(model.negative_elbo_bound, 100)
-    print("NELBO: {}. KL: {}. Rec: {}".format(nelbo, kl, rec))
+    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(model.negative_elbo_bound, 100)
+    print("NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(nelbo, kl, rec, rec_mse, rec_var))
 
     if run_iwae:
-        for iw in [1, 10, 100, 1000]:
+        for iw in [1, 10, 100]:
             repeat = max(100 // iw, 1)  # Do at least 100 iterations
             fn = lambda x: model.negative_iwae_bound(x, iw)
-            niwae, kl, rec = compute_metrics(fn, repeat)
+            niwae, kl, rec, rec_mse, rec_var = compute_metrics(fn, repeat)
             print("Negative IWAE-{}: {}".format(iw, niwae))
 
 

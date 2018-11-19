@@ -50,12 +50,14 @@ class VAE(nn.Module):
         # decode
         mu, var = self.dec.decode(z)
 
-        rec = ut.nlog_prob_normal(
-            mu=mu, y=x, var=var, fixed_var=self.warmup, var_pen=self.var_pen
-        ).mean(-1)
         kl = self.kl_elem(z, qm, qv).mean(-1)
+
+        nll, rec_mse, rec_var = ut.nlog_prob_normal(
+            mu=mu, y=x, var=var, fixed_var=self.warmup, var_pen=self.var_pen)
+        rec, rec_mse, rec_var = nll.mean(-1), rec_mse.mean(-1), rec_var.mean(-1)
+
         nelbo = kl + rec
-        return nelbo, kl, rec
+        return nelbo, kl, rec, rec_mse, rec_var
 
     def negative_iwae_bound(self, x, iw):
         """
@@ -88,34 +90,39 @@ class VAE(nn.Module):
         # decode
         mu, var = self.dec.decode(z)
 
-        log_prob = -ut.nlog_prob_normal(mu=mu, y=x, var=var,
-                                        fixed_var=self.warmup, var_pen=self.var_pen)
-
         kl_elem = self.kl_elem(z, qm, qv)
+
+        nll, rec_mse, rec_var = ut.nlog_prob_normal(
+            mu=mu, y=x, var=var, fixed_var=self.warmup, var_pen=self.var_pen)
+        log_prob, rec_mse, rec_var = -nll, rec_mse.mean(), rec_var.mean()
 
         niwae = -ut.log_mean_exp(log_prob - kl_elem, dim=1).mean(-1)
         rec = -log_prob.mean(1).mean(-1)
         kl = kl_elem.mean(1).mean(-1)
-        return niwae, kl, rec
+        return niwae, kl, rec, rec_mse, rec_var
 
     def loss(self, x, iw=1):
         if iw > 1:
-            niwae, kl, rec = self.negative_iwae_bound(x, iw)
+            niwae, kl, rec, rec_mse, rec_var = self.negative_iwae_bound(x, iw)
             loss = niwae
             summaries = dict((
                 ('train/loss', niwae),
                 ('gen/iwae', -niwae),
                 ('gen/kl_z', kl),
                 ('gen/rec', rec),
+                ('gen/rec_mse', rec_mse),
+                ('gen/rec_var', rec_var),
             ))
         else:
-            nelbo, kl, rec = self.negative_elbo_bound(x)
+            nelbo, kl, rec, rec_mse, rec_var = self.negative_elbo_bound(x)
             loss = nelbo
             summaries = dict((
                 ('train/loss', nelbo),
                 ('gen/elbo', -nelbo),
                 ('gen/kl_z', kl),
                 ('gen/rec', rec),
+                ('gen/rec_mse', rec_mse),
+                ('gen/rec_var', rec_var),
             ))
 
         return loss, summaries
