@@ -19,11 +19,13 @@ def main():
         url = "https://www.dataport.cloud/"   
         usr = "oskartriebe@stanford.edu"
         pwd = "GansterWill"
-
+        print('downloadData')
         while True: 
             try:
                 # Launch the webdriver
-                driver = selenium.webdriver.Chrome()
+                options = selenium.webdriver.chrome.options.Options()
+                #options.headless = True
+                driver = selenium.webdriver.Chrome(options = options)
                 
                 # Navigate to dataport.cloud
                 driver.get(url)
@@ -97,11 +99,12 @@ def main():
 
             except selenium.common.exceptions.ElementNotVisibleException as e:
                 # If we hit an exception, close the driver and try again
+                print('exception')
                 driver.close()
 
   
 
-    def reduceData(date):
+    def reduceData(date, var):
         '''
         Method: reduceData
         Converts our 1-minute resolution data into 15 minute resolution data, 
@@ -112,7 +115,7 @@ def main():
         mostRecentDownload = max(listOfFiles, key = os.path.getctime)
         
         # This will vary depending on what variables we extract
-        headers = ['localminute', 'dataid', 'use']
+        headers = ['localminute', 'dataid', var]
 
         def dateTimeParser(x): 
             # Not sure how we want to deal with the date encoding, but since
@@ -180,32 +183,62 @@ def main():
 
         '''
         We now have the reduced day
-        Store as its own data file
-        At the end, we'll add them all together
-        Modify the date string so it's not interpreted as a filepath because of the backslash
+        Return it as np array to be added to the aggregate
+        Also delete the corresponding csv file to keep memory load low
         '''
-        date = date.replace('/', '_')
-        print('saving ', date, ' with shape ', fullDayAggregate.shape)
-        np.save(date, fullDayAggregate)
+        os.system('rm /Users/willlauer/Downloads/*.csv') 
+
+        return fullDayAggregate  
+
+
+    def addToAggregate(reducedArr, aggregateFilename):
+    
+        # Output shape that we're expecting
+        aggregate = np.load(aggregateFilename)
+        print('aggregate has ' + str(aggregate.shape[0]))
+        aggregate = np.concatenate((aggregate, reducedArr))
+        print('added to get ' + str(aggregate.shape[0]))
+
+        np.save(aggregateFilename, aggregate)
+
+
+
+        
+
 
 
     def run():
-        # daysInMonths = [(1, 31), (2, 30), (3, 31), (4, 30), (5, 31), (6, 30), (7, 31), (8, 30), (9, 31), (10, 31), (11, 30), (12, 31)] 
-        daysInMonths = [(1, 31)] 
+        
+        aggregateFilename = 'aggregate3.npy'
+        aggregateInit = np.zeros((0, 3)) # Time, houseID, use
+        np.save(aggregateFilename, aggregateInit)
+        np.save('aggregate4.npy')        
+        
+        daysInMonths = [(1, 31), (2, 28), (3, 31)] # , (4, 30), (5, 31), (6, 30), (7, 31), (8, 30), (9, 31), (10, 31), (11, 30), (12, 31)] 
+        #daysInMonths = [(1, 31), (2, 28), (3, 31), (4, 30), (5, 31), (6, 30), (7, 31), (8, 30), (9, 31), (10, 31), (11, 30), (12, 31)] 
+        # daysInMonths = [(2, 16), (3, 31), (4, 30), (5, 31), (6, 30), (7, 31), (8, 30), (9, 31), (10, 31), (11, 30), (12, 31)] 
+        #daysInMonths = [(1, 31)] 
         yearStr = '2017'
-        dataStream = ['use']
+        
+        # Structure requests like this in the future
+        tups = [('aggregate3.npy', 'bedroom1'), ('aggregate4.npy', 'bathroom1')] 
 
+        for tup in tups:
+            aggregateFilename = tup[0]
+            dataStream = tup[1]
+            for month, days in daysInMonths:
+                monthStr = '0' + str(month) if month < 10 else str(month)
+                for day in range(1, days+1):
+                    dayStr = '0' + str(day) if day < 10 else str(day)
+                    print('downloading ', monthStr, dayStr)
+                    date = monthStr + '/' + dayStr + '/' + yearStr
+                    downloadDate(date, date, [dataStream])
+                    print('download complete')
+                    reducedArr = reduceData(date, dataStream)
+                    print('reduce complete')
+                    addToAggregate(reducedArr, aggregateFilename)
+                    print('added to aggregate')
 
-        for month, days in daysInMonths:
-            monthStr = '0' + str(month) if month < 10 else str(month)
-            for day in range(1, days+1):
-                dayStr = '0' + str(day) if day < 10 else str(day)
-                print('downloading ', monthStr, dayStr)
-                date = monthStr + '/' + dayStr + '/' + yearStr
-                downloadDate(date, date, dataStream)
-                print('download complete')
-                reduceData(date)
-                print('reduce complete')
 
 
     run()
