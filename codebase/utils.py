@@ -5,9 +5,11 @@ import torch
 from codebase.models.vae import VAE, GMVAE
 from torch.nn import functional as F
 from HourlyLoadDataset import HourlyLoad2017Dataset
+from ConditionalLoadDataset import ConditionalLoad2017Dataset
 
 
 def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
+    # print(mu.shape, y.shape, var.shape)
     diff = y - mu
     # makes it just MSE
     mse = torch.mul(diff, diff)
@@ -247,30 +249,52 @@ def reset_weights(m):
         pass
 
 
-def get_load_data(device, batch_size, in_memory=False):
-    train_loader = torch.utils.data.DataLoader(
-        HourlyLoad2017Dataset(root_dir="data/split", mode='train', in_memory=in_memory),
-        batch_size=batch_size,
-        shuffle=True)
-
-    val = HourlyLoad2017Dataset(root_dir="data/split", mode='val', in_memory=in_memory)
-    test = HourlyLoad2017Dataset(root_dir="data/split", mode='test', in_memory=in_memory)
-
-    if in_memory:
-        val_set = val.use
-        test_set = test.use
+def get_load_data(device, split, batch_size=128, in_memory=False, log_normal=False, shift_scale=None):
+    if split == 'train':
+        train_loader = torch.utils.data.DataLoader(
+            HourlyLoad2017Dataset(root_dir="data/split", mode='train',
+                                  in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale),
+            batch_size=batch_size,
+            shuffle=True)
+        return train_loader
     else:
-        val_set = []
-        test_set = []
-        for i in range(len(val)//10):
-            val_set.append(val[i]["use"])
-        for i in range(len(test)//10):
-            test_set.append(test[i]["use"])
+        split_set = HourlyLoad2017Dataset(root_dir="data/split", mode=split,
+                                          in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale)
+        if in_memory:
+            split_list = split_set.use
+        else:
+            split_list = []
+            for i in range(len(split_set)):
+                split_list.append(split_set[i]["use"])
+        split_set = torch.tensor(split_list, dtype=torch.float).to(device)
+        return split_set
 
-    val_set = torch.tensor(val_set, dtype=torch.float).to(device)
-    test_set = torch.tensor(test_set, dtype=torch.float).to(device)
 
-    return train_loader, val_set, test_set
+def get_load_data_conditional(device, split, batch_size=128, in_memory=False, log_normal=False, shift_scale=None):
+    if split == 'train':
+        train_loader = torch.utils.data.DataLoader(
+            ConditionalLoad2017Dataset(
+                root_dir="data/split", mode='train',
+                in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale
+            ),
+            batch_size=batch_size,
+            shuffle=True
+        )
+        return train_loader
+    else:
+        split_set = ConditionalLoad2017Dataset(
+            root_dir="data/split", mode=split, in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale
+        )
+        if in_memory:
+            split_set = {
+                "use": split_set.use,
+                "other": split_set.other,
+                "y_real": split_set.y_real,
+            }
+        else:
+            raise NotImplementedError
+        return split_set
+
 
 class FixedSeed:
     def __init__(self, seed):

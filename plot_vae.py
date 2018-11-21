@@ -3,7 +3,14 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 
-def make_image_load(model):
+def reverse_log_norm(x, shift_scale, log_normal):
+    z = shift_scale[1]*x + shift_scale[0]
+    if log_normal:
+        z = np.exp(z)
+    return z
+
+
+def make_image_load(model, log_normal=False, shift_scale=(0, 1)):
     num_sample = 4*4
     sampled_mu, sampled_var = model.eval().sample_x(batch=num_sample)
     for i in range(num_sample):
@@ -11,20 +18,23 @@ def make_image_load(model):
         std = np.sqrt(sampled_var[i].detach().numpy())
 
         ax = plt.subplot(4, 4, i + 1)
-        ax.axis('off')
+        # ax.axis('off')
         plt.tight_layout()
         ax.set_title('Sample #{}'.format(i))
-        plt.ylim((0, 8))
-        plt.fill_between(np.arange(model.x_dim), mu - 2*std, mu + 2*std,
+        plt.ylim((0, 5))
+        # ax.set_ylim(bottom=0)
+        plt.fill_between(np.arange(model.x_dim),
+                         reverse_log_norm(mu - 2*std, shift_scale, log_normal),
+                         reverse_log_norm(mu + 2*std, shift_scale, log_normal),
                          alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF', linewidth=0)
-        plt.plot(mu)
+        plt.plot(reverse_log_norm(mu, shift_scale, log_normal))
 
     plt.show()
 
 
-def make_image_load_z(model):
+def make_image_load_z(model, log_normal=False, shift_scale=(0, 1)):
     z_dim = model.z_dim
-    z_values = [-3, -1, 1, 3]
+    z_values = [-2, -0.5, 0.5, 2]
     num_sample = z_dim*len(z_values)
     z = torch.zeros(num_sample, z_dim)
     for v_i, value in enumerate(z_values):
@@ -42,10 +52,11 @@ def make_image_load_z(model):
         plt.tight_layout()
         ax.set_title('z = {}'.format(z[i, :].numpy()))
         # plt.ylim((0, 5))
-        plt.fill_between(
-            np.arange(model.x_dim), mu - 2*std, mu + 2*std,
-            alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF', linewidth=0)
-        plt.plot(mu)
+        plt.fill_between(np.arange(model.x_dim),
+                         reverse_log_norm(mu - 2*std, shift_scale, log_normal),
+                         reverse_log_norm(mu + 2*std, shift_scale, log_normal),
+                         alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF', linewidth=0)
+        plt.plot(reverse_log_norm(mu, shift_scale, log_normal))
 
     plt.show()
 

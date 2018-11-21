@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from codebase import utils as ut
 from torch import optim
+from codebase.models.cvae import CVAE
 
 
 def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones, iw,
@@ -23,9 +24,13 @@ def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones
                     # start learning variance
                     model.warmup = False
                 optimizer.zero_grad()
-                x = torch.tensor(sample).float().to(device)
-
-                loss, summaries = model.loss(x, iw)
+                if isinstance(model, CVAE):
+                    for k, v in sample.items():
+                        sample[k] = torch.tensor(v).float().to(device)
+                    loss, summaries = model.loss(sample, iw)
+                else:
+                    x = torch.tensor(sample).float().to(device)
+                    loss, summaries = model.loss(x, iw)
 
                 loss.backward()
                 optimizer.step()
@@ -44,7 +49,7 @@ def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones
                     ut.save_model_by_name(model, i)
                     # print(optimizer.param_groups[0]['lr'])
                     # print("warmup", model.warmup)
-                    print("\n", summaries)
+                    print("\n", [(key, v.item()) for key, v in summaries.items()])
 
                 if i == iter_max:
                     return

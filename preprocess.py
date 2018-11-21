@@ -7,6 +7,7 @@ from shutil import copyfile
 
 run_raw_processing = True
 run_split = True
+save_in_one = True
 num_days = 365
 daily_resolution = 24
 remove_missing_threshold = 3
@@ -119,6 +120,27 @@ if run_split:
                 dst = os.path.join(subdir, file_name)
                 # print(src, dst)
                 copyfile(src, dst)
+
+if save_in_one:
+    root_dir = "data/split"
+    for mode in ["test", "val", "train"]:
+        split_dir = os.path.join(root_dir, mode)
+        data_ids = sorted([int(x) for x in next(os.walk(split_dir))[1]])
+        csv_list = []
+        # print(root_dir, data_ids)
+        for subdir in [str(x) for x in data_ids]:
+            # print(next(os.walk(os.path.join(root_dir, subdir)))[2])
+            for file_name in next(os.walk(os.path.join(split_dir, subdir)))[2]:
+                csv_list.append((subdir, file_name))
+
+        columns = {"use": [], "car": []}
+        for idx in range(len(csv_list)):
+            csv = pd.read_csv(os.path.join(split_dir, *csv_list[idx]))
+            for col in columns.keys():
+                columns[col].append(csv[col].values)
+        for col in columns.keys():
+            file_name = os.path.join(split_dir, "{}.csv".format(col))
+            pd.DataFrame(columns[col]).to_csv(file_name, index=False)
 
 
 
