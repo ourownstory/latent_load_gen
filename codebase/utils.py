@@ -3,6 +3,7 @@ import os
 import shutil
 import torch
 from codebase.models.vae import VAE, GMVAE
+from codebase.models.cvae import CVAE
 from torch.nn import functional as F
 from HourlyLoadDataset import HourlyLoad2017Dataset
 from ConditionalLoadDataset import ConditionalLoad2017Dataset
@@ -205,6 +206,44 @@ def evaluate_lower_bound(model, eval_set, run_iwae=False):
             print("Negative IWAE-{}: {}".format(iw, niwae))
 
 
+def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
+    check_model = isinstance(model, CVAE)
+    assert check_model, "This function is only intended for VAE and GMVAE"
+
+    print('*' * 80)
+    print("LOG-LIKELIHOOD LOWER BOUNDS ON TEST SUBSET")
+    print('*' * 80)
+
+    x = eval_set
+    torch.manual_seed(0)
+
+    def detach_torch_tuple(args):
+        return (v.detach() for v in args)
+
+    def compute_metrics(fn, repeat):
+        metrics = [0, 0, 0, 0, 0]
+        for _ in range(repeat):
+            niwae, kl, rec, rec_mse, rec_var = detach_torch_tuple(fn(**x))
+            metrics[0] += niwae / repeat
+            metrics[1] += kl / repeat
+            metrics[2] += rec / repeat
+            metrics[3] += rec_mse / repeat
+            metrics[4] += rec_var / repeat
+        return metrics
+
+    # Run multiple times to get low-var estimate
+    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(model.negative_elbo_bound, 100)
+    print("NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(nelbo, kl, rec, rec_mse, rec_var))
+
+    if run_iwae:
+        raise NotImplementedError
+        # for iw in [1, 10, 100]:
+        #     repeat = max(100 // iw, 1)  # Do at least 100 iterations
+        #     fn = lambda x: model.negative_iwae_bound(x, iw)
+        #     niwae, kl, rec, rec_mse, rec_var = compute_metrics(fn, repeat)
+        #     print("Negative IWAE-{}: {}".format(iw, niwae))
+
+
 def save_model_by_name(model, global_step):
     save_dir = os.path.join('checkpoints', model.name)
     if not os.path.exists(save_dir):
@@ -275,21 +314,36 @@ def get_load_data_conditional(device, split, batch_size=128, in_memory=False, lo
         train_loader = torch.utils.data.DataLoader(
             ConditionalLoad2017Dataset(
                 root_dir="data/split", mode='train',
-                in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale
+                in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale,
+                get_ev_subset=False,
             ),
             batch_size=batch_size,
             shuffle=True
         )
-        return train_loader
+        train_loader_ev = torch.utils.data.DataLoader(
+            ConditionalLoad2017Dataset(
+                root_dir="data/split", mode='train',
+                in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale,
+                get_ev_subset=True,
+            ),
+            batch_size=batch_size,
+            shuffle=True
+        )
+        return train_loader, train_loader_ev
     else:
-        split_set = ConditionalLoad2017Dataset(
-            root_dir="data/split", mode=split, in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale
+        # split_set = ConditionalLoad2017Dataset(
+        #     root_dir="data/split", mode=split, in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale,
+        #     get_ev_subset=False,
+        # )
+        split_set_ev = ConditionalLoad2017Dataset(
+            root_dir="data/split", mode=split, in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale,
+            get_ev_subset=True,
         )
         if in_memory:
             split_set = {
-                "use": split_set.use,
-                "other": split_set.other,
-                "y_real": split_set.y_real,
+                "x_0": torch.tensor(split_set_ev.x_0, dtype=torch.float).to(device),
+                "x_1": torch.tensor(split_set_ev.x_1, dtype=torch.float).to(device),
+                "y_real": torch.tensor(split_set_ev.y_real, dtype=torch.float).to(device),
             }
         else:
             raise NotImplementedError

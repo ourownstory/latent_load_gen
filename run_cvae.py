@@ -3,9 +3,9 @@ import torch
 import tqdm
 from codebase import utils as ut
 from codebase.models.cvae import CVAE
-from codebase.train import train
+from codebase.train import train_c
 from pprint import pprint
-from plot_vae import make_image_load, make_image_load_z
+from plot_cvae import make_image_load, make_image_load_z, make_image_load_c
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--model',     type=str, default='cvae', help="run CVAE")
@@ -34,26 +34,20 @@ model_name = '_'.join([t.format(v) for (t, v) in layout])
 pprint(vars(args))
 print('Model name:', model_name)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-shift_scale = {
-    'use': (-0.32598444650515, 2.2728914107033136),
-    'other': (-0.32598444650515, 2.2728914107033136),
-    # use instead the real values:
-    # 'use': (-0.32598444650515, 2.2728914107033136),
-    # 'car': (-8.742585689402953, 3.867340374856824),
-    # 'other': (-0.5925285502290069, 2.732820150602578),
-}  # computed on train subset, log-transformed
 
+shift_scale = (-0.5223688943269471, 2.6144099155163927)  # computed on train subset (for all x), log-transformed
 # choose model
 model = CVAE(z_dim=args.z, name=model_name, x_dim=24, warmup=(args.warmup==1), var_pen=args.var_pen).to(device)
 
 if args.mode == 'train':
     writer = ut.prepare_writer(model_name, overwrite_existing=True)
-    train_loader = ut.get_load_data_conditional(
+    train_loader, train_loader_ev = ut.get_load_data_conditional(
         device, split='train', batch_size=args.batch,
         in_memory=True, log_normal=True, shift_scale=shift_scale
     )
-    train(model=model,
+    train_c(model=model,
           train_loader=train_loader,
+          train_loader_ev=train_loader_ev,
           device=device,
           tqdm=tqdm.tqdm,
           writer=writer,
@@ -61,15 +55,18 @@ if args.mode == 'train':
           iw=args.iw,
           iter_max=args.iter_max, iter_save=args.iter_save)
     model.set_to_eval()
-    # val_set = ut.get_load_data(device, split='val', in_memory=True, log_normal=True, shift_scale=shift_scale)
-    # ut.evaluate_lower_bound(model, val_set, run_iwae=(args.iw>1))
+    val_set = ut.get_load_data_conditional(
+        device, split='val', in_memory=True, log_normal=True, shift_scale=shift_scale)
+    ut.evaluate_lower_bound_conditional(model, val_set, run_iwae=(args.iw>1))
 else:
     ut.load_model_by_name(model, global_step=args.iter_max)
 
 if args.mode in ['val', 'test']:
     model.set_to_eval()
-    # val_set = ut.get_load_data(device, split=args.mode, in_memory=True, log_normal=True, shift_scale=shift_scale)
-    # ut.evaluate_lower_bound(model, val_set, run_iwae=(args.iw>1))
+    val_set = ut.get_load_data_conditional(
+        device, split=args.mode, in_memory=True, log_normal=True, shift_scale=shift_scale)
+    ut.evaluate_lower_bound_conditional(model, val_set, run_iwae=(args.iw>1))
 
-make_image_load(model, log_normal=True, shift_scale=shift_scale["use"])
-make_image_load_z(model, log_normal=True, shift_scale=shift_scale["use"])
+make_image_load(model, log_normal=True, shift_scale=shift_scale)
+make_image_load_z(model, log_normal=True, shift_scale=shift_scale)
+make_image_load_c(model, log_normal=True, shift_scale=shift_scale)

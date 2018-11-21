@@ -7,7 +7,8 @@ import numpy as np
 class ConditionalLoad2017Dataset(Dataset):
     """hourly aggregate load of a day dataset, with conditionals"""
 
-    def __init__(self, root_dir, mode='train', in_memory=True, log_normal=False, shift_scale=None):
+    def __init__(self, root_dir, mode='train', in_memory=True, log_normal=False, shift_scale=None,
+                 get_ev_subset=True):
         """
         Args:
             root_dir (string): Directory.
@@ -19,6 +20,7 @@ class ConditionalLoad2017Dataset(Dataset):
         self.in_memory = in_memory
         self.eps = 1e-5
         self.shift_scale = shift_scale
+        self.ev_subset = get_ev_subset
         if in_memory:
             self.use = pd.read_csv(os.path.join(self.root_dir, "use.csv")).values
             self.car = pd.read_csv(os.path.join(self.root_dir, "car.csv")).values
@@ -31,78 +33,95 @@ class ConditionalLoad2017Dataset(Dataset):
             # the conditional, representing the log ratio of EV vs other appliances.
             # self.y_real = np.log(self.car.sum(-1) + self.eps) - np.log(self.other.sum(-1) + self.eps)
             # self.y_real = self.car.sum(-1) / (self.use.sum(-1) + self.eps)
-            self.y_real = np.log(1 + self.car.sum(-1))
-            # self.y = 1 - (self.y_real < 1)
-            # stack the x and x_hat vectors
-            # self.x = np.concatenate(
-            #     (self.use, self.use, self.other, self.other),
-            #     axis=0)
-            # self.x_hat = np.concatenate(
-            #     (self.use, self.other, self.other, self.use),
-            #     axis=0)
-            # self.y_hat = np.concatenate(
-            #     (np.zeros_like(self.y_real), -self.y_real, np.zeros_like(self.y_real), self.y_real),
-            #     axis=0)
+            # the conditional, as EV magnitude
+            self.y_real = self.car.sum(-1)
+
+            if get_ev_subset:
+                self.x_0 = self.other[self.y_real > 0.1]
+                self.x_1 = self.use[self.y_real > 0.1]
+                self.y_real = self.y_real[self.y_real > 0.1]
+            else:
+                self.x_no_ev = self.other[self.y_real < 0.1]
+                self.y_real = None
+
             # remove
             self.car = None
+            self.use = None
+            self.other = None
 
             if log_normal:
-                self.use = np.log(self.use + self.eps)
-                # self.car = np.log(self.car + self.eps)
-                self.other = np.log(self.other + self.eps)
-                if shift_scale is None:
-                    self.shift_scale = {
-                        "use": (self.use.mean(), np.std(self.use)),
-                        # "car": (self.car.mean(), np.std(self.car)),
-                        "other": (self.other.mean(), np.std(self.other))
-                    }
-                self.use = (self.use - self.shift_scale["use"][0]) / self.shift_scale["use"][1]
-                # self.car = (self.car - self.shift_scale["car"][0]) / self.shift_scale["car"][1]
-                self.other = (self.other - self.shift_scale["other"][0]) / self.shift_scale["other"][1]
+                if get_ev_subset:
+                    self.y_real = np.log(1 + self.y_real)
+                    self.x_0 = np.log(self.x_0 + self.eps)
+                    self.x_1 = np.log(self.x_1 + self.eps)
+                else:
+                    self.x_no_ev = np.log(self.x_no_ev + self.eps)
 
+            if shift_scale is not None:
+                if get_ev_subset:
+                    self.x_0 = (self.x_0 - self.shift_scale[0]) / self.shift_scale[1]
+                    self.x_1 = (self.x_1 - self.shift_scale[0]) / self.shift_scale[1]
+                else:
+                    self.x_no_ev = (self.x_no_ev - self.shift_scale[0]) / self.shift_scale[1]
         else:
-            self.data_ids = sorted([int(x) for x in next(os.walk(self.root_dir))[1]])
-            self.csv_list = []
-            # print(self.root_dir, self.data_ids)
-            for subdir in [str(x) for x in self.data_ids]:
-                # print(next(os.walk(os.path.join(self.root_dir, subdir)))[2])
-                for file_name in next(os.walk(os.path.join(self.root_dir, subdir)))[2]:
-                    self.csv_list.append((subdir, file_name))
+            raise NotImplementedError
 
     def __len__(self):
         if self.in_memory:
-            return self.use.shape[0]
+            if self.ev_subset:
+                return self.y_real.shape[0]
+            else:
+                return self.x_no_ev.shape[0]
         else:
-            return len(self.csv_list)
+            raise NotImplementedError
 
     def __getitem__(self, idx):
         if self.in_memory:
-            # sample = self.use[idx]
-            sample = {
-                "use": self.use[idx],
-                "other": self.other[idx],
-                "y_real": self.y_real[idx],
-            }
+            if self.ev_subset:
+                sample = {
+                    "x_0": self.x_0[idx],
+                    "x_1": self.x_1[idx],
+                    "y_real": self.y_real[idx],
+                }
+            else:
+                sample = {
+                    "x_no_ev": self.x_no_ev[idx],
+                }
         else:
-            csv = pd.read_csv(os.path.join(self.root_dir, *self.csv_list[idx]))
-            sample = {
-                "use": csv["use"].values,
-                "car": csv["car"].values
-            }
-            # sample = csv["use"].values
+            raise NotImplementedError
         return sample
 
 
 def run_test(split):
+    print("\n")
     print(split)
-    split_set = ConditionalLoad2017Dataset(root_dir="data/split", mode=split, in_memory=True, log_normal=False)
-    print(len(split_set))
-    # print(split_set.use)
-    print(split_set.shift_scale)
-    print("use", np.percentile(split_set.use.sum(-1), [0, 5, 50, 95, 100]))
-    print("car", np.percentile((split_set.use - split_set.other).sum(-1), [0, 5, 50, 95, 100]))
-    print("other", np.percentile(split_set.other.sum(-1), [0, 5, 50, 95, 100]))
-    print("y_real", np.percentile(split_set.y_real, [0, 5, 25, 50, 75, 90, 95, 100]))
+    shift_scale = (-0.5223688943269471, 2.6144099155163927)
+    # shift_scale = None  # to compute new
+    split_set = ConditionalLoad2017Dataset(
+        root_dir="data/split", mode=split, in_memory=True, log_normal=True,
+        shift_scale=shift_scale,
+        get_ev_subset=False
+    )
+    split_set_ev = ConditionalLoad2017Dataset(
+        root_dir="data/split", mode=split, in_memory=True, log_normal=True,
+        shift_scale=shift_scale,
+        get_ev_subset=True
+    )
+    print("No EV", len(split_set))
+    print("EV", len(split_set_ev))
+    print("x_0", np.percentile(split_set_ev.x_0.sum(-1), [0, 5, 50, 95, 100]))
+    print("ev", np.percentile((split_set_ev.x_1 - split_set_ev.x_0).sum(-1), [0, 5, 50, 95, 100]))
+    print("x_no_ev", np.percentile(split_set.x_no_ev.sum(-1), [0, 5, 50, 95, 100]))
+    print("y_real", np.percentile(split_set_ev.y_real, [0, 5, 25, 50, 75, 90, 95, 100]))
+    # print("y_real == 0", np.mean(split_set_ev.y_real == 0))
+    # print("y_real < log(1+1)", np.mean(split_set_ev.y_real < np.log(1+1)))
+
+    if shift_scale is None:
+        shift_scale_new = (
+            np.concatenate((split_set.x_no_ev, split_set_ev.x_0, split_set_ev.x_0), axis=0).mean(),
+            np.std(np.concatenate((split_set.x_no_ev, split_set_ev.x_0, split_set_ev.x_0), axis=0))
+        )
+        print("shift_scale_new: ", shift_scale_new)
 
 
 if __name__ == "__main__":

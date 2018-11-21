@@ -31,29 +31,32 @@ class CVAE(nn.Module):
         kl_elem = ut.kl_normal(qm, qv, self.z_prior_m, self.z_prior_v)
         return kl_elem
 
-    def negative_elbo_bound_for(self, x, x_hat, y, c):
+    def negative_elbo_bound_for(self, x, x_hat, y, c, reduce=True):
         qm, qv = self.enc.encode(x, y=y)
         # sample z(1) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)
 
-        kl = self.kl_elem(z, qm, qv).mean(-1)
+        kl = self.kl_elem(z, qm, qv)
 
         # decode
         mu, var = self.dec.decode(z, y=y, c=c)
-        nll, rec_mse, rec_var = ut.nlog_prob_normal(
+        rec, rec_mse, rec_var = ut.nlog_prob_normal(
             mu=mu, y=x_hat, var=var, fixed_var=self.warmup, var_pen=self.var_pen)
-        rec, rec_mse, rec_var = nll.mean(-1), rec_mse.mean(-1), rec_var.mean(-1)
+        if reduce:
+            kl = kl.mean(-1)
+            rec, rec_mse, rec_var = rec.mean(-1), rec_mse.mean(-1), rec_var.mean(-1)
         nelbo = kl + rec
         # loss = {"nelbo": kl + rec, "kl": kl, "rec": rec, "rec_mse": rec_mse, "rec_var": rec_var}
-        return [nelbo, kl, rec, rec_mse, rec_var]
+        return nelbo, kl, rec, rec_mse, rec_var
 
-    def negative_elbo_bound(self, x_0, x_1, y_real):
+    def negative_elbo_bound(self, x_0, x_1, y_real, x_no_ev=None):
         """
         Computes the Evidence Lower Bound, KL and, Reconstruction costs
 
         Args:
-            x_0: tensor: (batch, dim): Observations without EV
-            x_1: tensor: (batch, dim): Observations with EV
+            x_no_ev: tensor: (batch, dim): Observations that do not have EV
+            x_0: tensor: (batch, dim): Observations with EV removed
+            x_1: tensor: (batch, dim): Observations including EV
             y_real: tensor: (batch,): Magnitude of EV for given (x_1 - x_0)
 
         Returns:
@@ -63,6 +66,13 @@ class CVAE(nn.Module):
         """
         # y = np.int(y_real > 1)
         # y = np.eye(self.y_dim)[y]
+
+        # identity mapping: x_no_ev
+        if x_no_ev is not None:
+            y_no_ev = torch.zeros((x_no_ev.shape[0], self.y_dim))
+            y_no_ev[:, 0] = 1
+            c_no_ev = torch.zeros((x_no_ev.shape[0], self.c_dim))
+            loss_no_ev = self.negative_elbo_bound_for(x=x_no_ev, x_hat=x_no_ev, y=y_no_ev, c=c_no_ev)
 
         # identity mapping: x_0
         y_0 = torch.zeros((y_real.shape[0], self.y_dim))
@@ -89,7 +99,10 @@ class CVAE(nn.Module):
 
         loss = []
         for i in range(len(loss_0_0)):
-            loss.append((loss_0_0[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i])/4.0)
+            if x_no_ev is not None:
+                loss.append((loss_no_ev[i] + loss_0_0[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i]) / 5.0)
+            else:
+                loss.append((loss_0_0[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i]) / 4.0)
 
         return tuple(loss)
 
@@ -108,7 +121,7 @@ class CVAE(nn.Module):
             # ))
         else:
             nelbo, kl, rec, rec_mse, rec_var = self.negative_elbo_bound(
-                x_0=sample["other"], x_1=sample["use"], y_real=sample["y_real"]
+                x_no_ev=sample["x_no_ev"], x_0=sample["x_0"], x_1=sample["x_1"], y_real=sample["y_real"]
             )
             loss = nelbo
             summaries = dict((
@@ -127,12 +140,12 @@ class CVAE(nn.Module):
             self.z_prior[0].expand(batch, self.z_dim),
             self.z_prior[1].expand(batch, self.z_dim))
 
-    def sample_x(self, batch):
+    def sample_x(self, batch, y, c):
         z = self.sample_z(batch)
-        return self.sample_x_given(z)
+        return self.sample_x_given(z, y, c)
 
-    def sample_x_given(self, z):
-        return self.dec.decode(z)
+    def sample_x_given(self, z, y, c):
+        return self.dec.decode(z, y, c)
 
     def set_to_eval(self):
         self.warmup = False
