@@ -78,7 +78,9 @@ class CVAE(nn.Module):
         y_0 = torch.zeros((y_real.shape[0], self.y_dim))
         y_0[:, 0] = 1
         c_0 = torch.zeros((y_real.shape[0], self.c_dim))
-        loss_0_0 = self.negative_elbo_bound_for(x=x_0, x_hat=x_0, y=y_0, c=c_0)
+        if x_no_ev is None:
+            # note: is done already with x_no_ev
+            loss_0_0 = self.negative_elbo_bound_for(x=x_0, x_hat=x_0, y=y_0, c=c_0)
 
         # identity mapping: x_1
         y_1 = torch.zeros((y_real.shape[0], self.y_dim))
@@ -98,12 +100,11 @@ class CVAE(nn.Module):
         # could also handle case of subtracting from x_0 and adding to x_1
 
         loss = []
-        for i in range(len(loss_0_0)):
+        for i in range(len(loss_1_1)):
             if x_no_ev is not None:
-                loss.append((loss_no_ev[i] + loss_0_0[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i]) / 5.0)
+                loss.append((loss_no_ev[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i]) / 4.0)
             else:
                 loss.append((loss_0_0[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i]) / 4.0)
-
         return tuple(loss)
 
     def loss(self, sample, iw=1):

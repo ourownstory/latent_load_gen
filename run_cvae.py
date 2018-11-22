@@ -14,13 +14,13 @@ parser.add_argument('--iter_max',  type=int, default=5000, help="Number of train
 parser.add_argument('--iter_save', type=int, default=1000, help="Save model every n iterations")
 parser.add_argument('--run',       type=int, default=0,     help="Run ID. In case you want to run replicates")
 parser.add_argument('--mode',      type=str, default='train',help="Flag for train, val, test, plot")
-parser.add_argument('--batch',     type=int, default=32,   help="Batch size")
-# parser.add_argument('--k',         type=int, default=0,    help="Number mixture components in MoG prior")
+parser.add_argument('--batch',     type=int, default=128,   help="Batch size")
 parser.add_argument('--lr',        type=float, default=8e-4,help="Learning Rate(initial)")
 parser.add_argument('--warmup',    type=int, default=1,     help="Fix variance during first 1/4 of training")
-parser.add_argument('--var_pen',   type=int, default=10,     help="Penalty for variance - multiplied with var loss term")
+parser.add_argument('--var_pen',   type=int, default=5,     help="Penalty for variance - multiplied with var loss term")
 parser.add_argument('--lr_gamma',  type=float, default=0.5, help="Anneling factor of lr")
 parser.add_argument('--lr_m_num',  type=int, default=4,     help="Number of lr anneling milestones")
+parser.add_argument('--k',         type=int, default=0,    help="Number mixture components in MoG prior")
 parser.add_argument('--iw',        type=int, default=0,    help="Number of IWAE samples for training")
 args = parser.parse_args()
 lr_milestones = [int(args.iter_max*((i+1)/(args.lr_m_num+1))) for i in range(args.lr_m_num)]
@@ -45,22 +45,23 @@ if args.mode == 'train':
         device, split='train', batch_size=args.batch,
         in_memory=True, log_normal=True, shift_scale=shift_scale
     )
-    train_c(model=model,
-          train_loader=train_loader,
-          train_loader_ev=train_loader_ev,
-          device=device,
-          tqdm=tqdm.tqdm,
-          writer=writer,
-          lr=args.lr, lr_gamma=args.lr_gamma, lr_milestones=lr_milestones,
-          iw=args.iw,
-          iter_max=args.iter_max, iter_save=args.iter_save)
+    train_c(
+        model=model,
+        train_loader=train_loader,
+        train_loader_ev=train_loader_ev,
+        device=device,
+        tqdm=tqdm.tqdm,
+        writer=writer,
+        lr=args.lr, lr_gamma=args.lr_gamma, lr_milestones=lr_milestones,
+        iw=args.iw,
+        iter_max=args.iter_max, iter_save=args.iter_save
+    )
     model.set_to_eval()
     val_set = ut.get_load_data_conditional(
         device, split='val', in_memory=True, log_normal=True, shift_scale=shift_scale)
     ut.evaluate_lower_bound_conditional(model, val_set, run_iwae=(args.iw>1))
 else:
     ut.load_model_by_name(model, global_step=args.iter_max)
-
 if args.mode in ['val', 'test']:
     model.set_to_eval()
     val_set = ut.get_load_data_conditional(

@@ -41,7 +41,7 @@ class ConditionalLoad2017Dataset(Dataset):
                 self.x_1 = self.use[self.y_real > 0.1]
                 self.y_real = self.y_real[self.y_real > 0.1]
             else:
-                self.x_no_ev = self.other[self.y_real < 0.1]
+                self.x_no_ev = self.other
                 self.y_real = None
 
             # remove
@@ -95,15 +95,15 @@ class ConditionalLoad2017Dataset(Dataset):
 def run_test(split):
     print("\n")
     print(split)
-    shift_scale = (-0.5223688943269471, 2.6144099155163927)
-    # shift_scale = None  # to compute new
+    # shift_scale = (-0.5223688943269471, 2.6144099155163927)
+    shift_scale = None  # to compute new
     split_set = ConditionalLoad2017Dataset(
-        root_dir="data/split", mode=split, in_memory=True, log_normal=True,
+        root_dir="data/split", mode=split, in_memory=True, log_normal=False,
         shift_scale=shift_scale,
         get_ev_subset=False
     )
     split_set_ev = ConditionalLoad2017Dataset(
-        root_dir="data/split", mode=split, in_memory=True, log_normal=True,
+        root_dir="data/split", mode=split, in_memory=True, log_normal=False,
         shift_scale=shift_scale,
         get_ev_subset=True
     )
