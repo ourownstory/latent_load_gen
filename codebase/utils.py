@@ -214,16 +214,18 @@ def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
     print("LOG-LIKELIHOOD LOWER BOUNDS ON TEST SUBSET")
     print('*' * 80)
 
-    x = eval_set
+    x_inputs = eval_set
     torch.manual_seed(0)
 
     def detach_torch_tuple(args):
         return (v.detach() for v in args)
 
-    def compute_metrics(fn, repeat):
+    def compute_metrics(repeat):
         metrics = [0, 0, 0, 0, 0]
         for _ in range(repeat):
-            niwae, kl, rec, rec_mse, rec_var = detach_torch_tuple(fn(**x))
+            niwae, kl, rec, rec_mse, rec_var = detach_torch_tuple(
+                model.compute_nelbo_niwae(**x_inputs)
+            )
             metrics[0] += niwae / repeat
             metrics[1] += kl / repeat
             metrics[2] += rec / repeat
@@ -232,15 +234,16 @@ def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
         return metrics
 
     # Run multiple times to get low-var estimate
-    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(model.compute_nelbo_niwae, 100)
+    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(100)
     print("NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
         nelbo, kl, rec, rec_mse, rec_var))
 
     if run_iwae:
         for iw in [1, 10, 100]:
             repeat = max(100 // iw, 1)  # Do at least 100 iterations
-            fn = lambda x: model.compute_nelbo_niwae(x, iw)
-            niwae, kl, rec, rec_mse, rec_var = compute_metrics(fn, repeat)
+            # fn = lambda x: model.compute_nelbo_niwae(x_inputs, iw=iw)
+            x_inputs['iw'] = iw
+            niwae, kl, rec, rec_mse, rec_var = compute_metrics(repeat)
             print("Negative IWAE-{}: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
                 iw, niwae, kl, rec, rec_mse, rec_var))
 
