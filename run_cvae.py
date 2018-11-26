@@ -8,8 +8,8 @@ from pprint import pprint
 from plot_cvae import make_image_load, make_image_load_z, make_image_load_c
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--model',     type=str, default='gmcvae', help="run CVAE")
-parser.add_argument('--z',         type=int, default=4,     help="Number of latent dimensions")
+parser.add_argument('--model',     type=str, default='v1', help="model_architecture: v1, lstm")
+parser.add_argument('--z',         type=int, default=10,     help="Number of latent dimensions")
 parser.add_argument('--iter_max',  type=int, default=1000, help="Number of training iterations")
 parser.add_argument('--iter_save', type=int, default=1000, help="Save model every n iterations")
 parser.add_argument('--run',       type=int, default=0,     help="Run ID. In case you want to run replicates")
@@ -26,7 +26,8 @@ args = parser.parse_args()
 lr_milestones = [int(args.iter_max*((i+1)/(args.lr_m_num+1))) for i in range(args.lr_m_num)]
 print("lr_milestones", lr_milestones, "lr", [args.lr*args.lr_gamma**i for i in range(args.lr_m_num)])
 layout = [
-    ('model={:s}',  args.model),
+    ('model={:s}',  "gmcvae" if args.k > 1 else "cvae"),
+    ('{:s}',  args.model),
     ('z={:02d}',  args.z),
     ('run={:04d}', args.run)
 ]

@@ -1,9 +1,6 @@
-import numpy as np
 import torch
-import torch.nn.functional as F
 from codebase import utils as ut
-from torch import autograd, nn, optim
-from torch.nn import functional as F
+from torch import autograd, nn
 
 
 class Encoder(nn.Module):

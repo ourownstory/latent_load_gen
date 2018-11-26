@@ -6,7 +6,7 @@ import numpy as np
 
 
 class CVAE(nn.Module):
-    def __init__(self, nn='v1', name='cvae', z_dim=2, x_dim=24, warmup=False, var_pen=1):
+    def __init__(self, nn='v1', name='cvae', z_dim=10, x_dim=24, warmup=False, var_pen=1):
         super().__init__()
         self.name = name
         self.z_dim = z_dim
