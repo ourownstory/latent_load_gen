@@ -23,9 +23,9 @@ class Encoder(nn.Module):
         )
 
     def encode(self, x, y=None):
-        xy = x if y is None else torch.cat((x, y), dim=1)
+        xy = x if y is None else torch.cat((x, y), dim=-1)
         h = self.net(xy)
-        m, v = ut.gaussian_parameters(h, dim=1)
+        m, v = ut.gaussian_parameters(h, dim=-1)
         return m, v
 
 
@@ -46,8 +46,8 @@ class Decoder(nn.Module):
         )
 
     def decode(self, z, y=None, c=None):
-        zy = z if y is None else torch.cat((z, y), dim=1)
-        zyc = zy if c is None else torch.cat((zy, c), dim=1)
+        zy = z if y is None else torch.cat((z, y), dim=-1)
+        zyc = zy if c is None else torch.cat((zy, c), dim=-1)
         h = self.net(zyc)
-        m, v = ut.gaussian_parameters(h, dim=1)
+        m, v = ut.gaussian_parameters(h, dim=-1)
         return m, v

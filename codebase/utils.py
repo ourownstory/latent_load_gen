@@ -232,16 +232,17 @@ def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
         return metrics
 
     # Run multiple times to get low-var estimate
-    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(model.negative_elbo_bound, 100)
-    print("NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(nelbo, kl, rec, rec_mse, rec_var))
+    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(model.compute_nelbo_niwae, 100)
+    print("NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
+        nelbo, kl, rec, rec_mse, rec_var))
 
     if run_iwae:
-        raise NotImplementedError
-        # for iw in [1, 10, 100]:
-        #     repeat = max(100 // iw, 1)  # Do at least 100 iterations
-        #     fn = lambda x: model.negative_iwae_bound(x, iw)
-        #     niwae, kl, rec, rec_mse, rec_var = compute_metrics(fn, repeat)
-        #     print("Negative IWAE-{}: {}".format(iw, niwae))
+        for iw in [1, 10, 100]:
+            repeat = max(100 // iw, 1)  # Do at least 100 iterations
+            fn = lambda x: model.compute_nelbo_niwae(x, iw)
+            niwae, kl, rec, rec_mse, rec_var = compute_metrics(fn, repeat)
+            print("Negative IWAE-{}: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
+                iw, niwae, kl, rec, rec_mse, rec_var))
 
 
 def save_model_by_name(model, global_step):
