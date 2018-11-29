@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 
-class ConditionalLoad2017Dataset(Dataset):
+class ConditionalLoadDataset(Dataset):
     """hourly aggregate load of a day dataset, with conditionals"""
 
     def __init__(self, root_dir, mode='train', in_memory=True, log_normal=False, shift_scale=None,
@@ -40,6 +40,7 @@ class ConditionalLoad2017Dataset(Dataset):
                 self.x_0 = self.other[self.y_real > 0.1]
                 self.x_1 = self.use[self.y_real > 0.1]
                 self.y_real = self.y_real[self.y_real > 0.1]
+                self.y_real = np.log(1 + self.y_real)
             else:
                 self.x_no_ev = self.other
                 self.y_real = None
@@ -51,7 +52,6 @@ class ConditionalLoad2017Dataset(Dataset):
 
             if log_normal:
                 if get_ev_subset:
-                    self.y_real = np.log(1 + self.y_real)
                     self.x_0 = np.log(self.x_0 + self.eps)
                     self.x_1 = np.log(self.x_1 + self.eps)
                 else:
@@ -97,13 +97,15 @@ def run_test(split):
     print(split)
     # shift_scale = (-0.5223688943269471, 2.6144099155163927)
     shift_scale = None  # to compute new
-    split_set = ConditionalLoad2017Dataset(
-        root_dir="data/split", mode=split, in_memory=True, log_normal=False,
+    root_dir = "data/split"
+    # root_dir = "../data/CS236"
+    split_set = ConditionalLoadDataset(
+        root_dir=root_dir, mode=split, in_memory=True, log_normal=False,
         shift_scale=shift_scale,
         get_ev_subset=False
     )
-    split_set_ev = ConditionalLoad2017Dataset(
-        root_dir="data/split", mode=split, in_memory=True, log_normal=False,
+    split_set_ev = ConditionalLoadDataset(
+        root_dir=root_dir, mode=split, in_memory=True, log_normal=False,
         shift_scale=shift_scale,
         get_ev_subset=True
     )
@@ -118,8 +120,8 @@ def run_test(split):
 
     if shift_scale is None:
         shift_scale_new = (
-            np.concatenate((split_set.x_no_ev, split_set_ev.x_0, split_set_ev.x_0), axis=0).mean(),
-            np.std(np.concatenate((split_set.x_no_ev, split_set_ev.x_0, split_set_ev.x_0), axis=0))
+            np.concatenate((split_set.x_no_ev, split_set_ev.x_0, split_set_ev.x_1), axis=0).mean(),
+            np.std(np.concatenate((split_set.x_no_ev, split_set_ev.x_0, split_set_ev.x_1), axis=0))
         )
         print("shift_scale_new: ", shift_scale_new)
 

@@ -6,7 +6,7 @@ from codebase.models.vae import VAE, GMVAE
 from codebase.models.cvae import CVAE
 from torch.nn import functional as F
 from HourlyLoadDataset import HourlyLoad2017Dataset
-from ConditionalLoadDataset import ConditionalLoad2017Dataset
+from ConditionalLoadDataset import ConditionalLoadDataset
 
 
 def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
@@ -18,8 +18,8 @@ def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
         var_cost = torch.zeros(*y.shape)
     else:
         # return actual log-likelihood
-        mse = torch.div(mse, var)
-        var_cost = var_pen*torch.log(var)
+        mse = torch.div(mse, var) * (1.0/var_pen)
+        var_cost = torch.log(var) #* var_pen
         # these two last terms would make it a correct log(p), but are not required for MLE
         # cost += log_2pi
         # cost *= 0.5
@@ -214,16 +214,18 @@ def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
     print("LOG-LIKELIHOOD LOWER BOUNDS ON TEST SUBSET")
     print('*' * 80)
 
-    x = eval_set
+    x_inputs = eval_set
     torch.manual_seed(0)
 
     def detach_torch_tuple(args):
         return (v.detach() for v in args)
 
-    def compute_metrics(fn, repeat):
+    def compute_metrics(repeat):
         metrics = [0, 0, 0, 0, 0]
         for _ in range(repeat):
-            niwae, kl, rec, rec_mse, rec_var = detach_torch_tuple(fn(**x))
+            niwae, kl, rec, rec_mse, rec_var = detach_torch_tuple(
+                model.compute_nelbo_niwae(**x_inputs)
+            )
             metrics[0] += niwae / repeat
             metrics[1] += kl / repeat
             metrics[2] += rec / repeat
@@ -232,16 +234,18 @@ def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
         return metrics
 
     # Run multiple times to get low-var estimate
-    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(model.negative_elbo_bound, 100)
-    print("NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(nelbo, kl, rec, rec_mse, rec_var))
+    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(100)
+    print("NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
+        nelbo, kl, rec, rec_mse, rec_var))
 
     if run_iwae:
-        raise NotImplementedError
-        # for iw in [1, 10, 100]:
-        #     repeat = max(100 // iw, 1)  # Do at least 100 iterations
-        #     fn = lambda x: model.negative_iwae_bound(x, iw)
-        #     niwae, kl, rec, rec_mse, rec_var = compute_metrics(fn, repeat)
-        #     print("Negative IWAE-{}: {}".format(iw, niwae))
+        for iw in [1, 10, 100]:
+            repeat = max(100 // iw, 1)  # Do at least 100 iterations
+            # fn = lambda x: model.compute_nelbo_niwae(x_inputs, iw=iw)
+            x_inputs['iw'] = iw
+            niwae, kl, rec, rec_mse, rec_var = compute_metrics(repeat)
+            print("Negative IWAE-{}: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
+                iw, niwae, kl, rec, rec_mse, rec_var))
 
 
 def save_model_by_name(model, global_step):
@@ -309,11 +313,18 @@ def get_load_data(device, split, batch_size=128, in_memory=False, log_normal=Fal
         return split_set
 
 
-def get_load_data_conditional(device, split, batch_size=128, in_memory=False, log_normal=False, shift_scale=None):
+def get_load_data_conditional(device, split, batch_size=64, in_memory=False, log_normal=False, get_hourly=True):
+    if get_hourly:
+        root_dir = "data/split"
+    else:
+        root_dir = "../data/CS236"
+
+    shift_scale = get_shift_scale(get_hourly, log_normal)
+
     if split == 'train':
         train_loader = torch.utils.data.DataLoader(
-            ConditionalLoad2017Dataset(
-                root_dir="data/split", mode='train',
+            ConditionalLoadDataset(
+                root_dir=root_dir, mode='train',
                 in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale,
                 get_ev_subset=False,
             ),
@@ -321,43 +332,44 @@ def get_load_data_conditional(device, split, batch_size=128, in_memory=False, lo
             shuffle=True
         )
         train_loader_ev = torch.utils.data.DataLoader(
-            ConditionalLoad2017Dataset(
-                root_dir="data/split", mode='train',
+            ConditionalLoadDataset(
+                root_dir=root_dir, mode='train',
                 in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale,
                 get_ev_subset=True,
             ),
             batch_size=batch_size,
             shuffle=True
         )
-        return train_loader, train_loader_ev
+        return train_loader, train_loader_ev, shift_scale
     else:
-        # split_set = ConditionalLoad2017Dataset(
-        #     root_dir="data/split", mode=split, in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale,
-        #     get_ev_subset=False,
-        # )
-        split_set_ev = ConditionalLoad2017Dataset(
-            root_dir="data/split", mode=split, in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale,
+        split_set_ev = ConditionalLoadDataset(
+            root_dir=root_dir, mode=split, in_memory=in_memory, log_normal=log_normal, shift_scale=shift_scale,
             get_ev_subset=True,
         )
         if in_memory:
             split_set = {
-                "x_0": torch.tensor(split_set_ev.x_0, dtype=torch.float).to(device),
-                "x_1": torch.tensor(split_set_ev.x_1, dtype=torch.float).to(device),
-                "y_real": torch.tensor(split_set_ev.y_real, dtype=torch.float).to(device),
+                "x_0": torch.FloatTensor(split_set_ev.x_0).to(device),
+                "x_1": torch.FloatTensor(split_set_ev.x_1).to(device),
+                "y_real": torch.FloatTensor(split_set_ev.y_real).to(device),
             }
         else:
             raise NotImplementedError
-        return split_set
+        return split_set, shift_scale
 
 
-class FixedSeed:
-    def __init__(self, seed):
-        self.seed = seed
-        self.state = None
-
-    def __enter__(self):
-        self.state = np.random.get_state()
-        np.random.seed(self.seed)
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        np.random.set_state(self.state)
+def get_shift_scale(hourly, log_normal):
+    if hourly:
+        if log_normal:
+            # computed on train subset (for all x), log-transformed
+            shift_scale = (-0.5223688943269471, 2.6144099155163927)
+        else:
+            # computed on train subset (for all x), without log
+            shift_scale = (1.5625197109379185, 1.751249676924145)
+    else:
+        if log_normal:
+            # computed on train, log-transformed, for 96resolution
+            shift_scale = (-1.75972004287765, 4.078388702012023)
+        else:
+            # computed on train, without log, for 96resolution
+            shift_scale = (1.2456642410923986, 1.6478924381994144)
+    return shift_scale
