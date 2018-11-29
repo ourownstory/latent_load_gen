@@ -40,7 +40,8 @@ class ConditionalLoadDataset(Dataset):
                 self.x_0 = self.other[self.y_real > 0.1]
                 self.x_1 = self.use[self.y_real > 0.1]
                 self.y_real = self.y_real[self.y_real > 0.1]
-                self.y_real = np.log(1 + self.y_real)
+                self.y_real = self.y_real * 0.1
+                # self.y_real = np.log(1 + self.y_real)
             else:
                 self.x_no_ev = self.other
                 self.y_real = None
@@ -54,6 +55,7 @@ class ConditionalLoadDataset(Dataset):
                 if get_ev_subset:
                     self.x_0 = np.log(self.x_0 + self.eps)
                     self.x_1 = np.log(self.x_1 + self.eps)
+                    self.y_real = np.log(1.0 + 10*self.y_real)
                 else:
                     self.x_no_ev = np.log(self.x_no_ev + self.eps)
 
@@ -97,8 +99,8 @@ def run_test(split):
     print(split)
     # shift_scale = (-0.5223688943269471, 2.6144099155163927)
     shift_scale = None  # to compute new
-    root_dir = "data/split"
-    # root_dir = "../data/CS236"
+    # root_dir = "data/split"
+    root_dir = "../data/CS236"
     split_set = ConditionalLoadDataset(
         root_dir=root_dir, mode=split, in_memory=True, log_normal=False,
         shift_scale=shift_scale,
@@ -114,7 +116,7 @@ def run_test(split):
     print("x_0", np.percentile(split_set_ev.x_0.sum(-1), [0, 5, 50, 95, 100]))
     print("ev", np.percentile((split_set_ev.x_1 - split_set_ev.x_0).sum(-1), [0, 5, 50, 95, 100]))
     print("x_no_ev", np.percentile(split_set.x_no_ev.sum(-1), [0, 5, 50, 95, 100]))
-    print("y_real", np.percentile(split_set_ev.y_real, [0, 5, 25, 50, 75, 90, 95, 100]))
+    print("y_real", np.percentile(split_set_ev.y_real, [0, 5, 10, 25, 50, 75, 90, 95, 100]))
     # print("y_real == 0", np.mean(split_set_ev.y_real == 0))
     # print("y_real < log(1+1)", np.mean(split_set_ev.y_real < np.log(1+1)))
 
