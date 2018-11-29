@@ -18,8 +18,8 @@ def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
         var_cost = torch.zeros(*y.shape)
     else:
         # return actual log-likelihood
-        mse = torch.div(mse, var)
-        var_cost = var_pen*torch.log(var)
+        mse = torch.div(mse, var) * (1.0/var_pen)
+        var_cost = torch.log(var) #* var_pen
         # these two last terms would make it a correct log(p), but are not required for MLE
         # cost += log_2pi
         # cost *= 0.5

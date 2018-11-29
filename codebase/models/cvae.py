@@ -123,47 +123,58 @@ class CVAE(nn.Module):
             kl: tensor: (): ELBO KL divergence to prior
             rec: tensor: (): ELBO Reconstruction term
         """
-        # y = np.int(y_real > 1)
-        # y = np.eye(self.y_dim)[y]
+        # identity mapping: x_1, x_0
+        y_1 = torch.zeros((y_real.shape[0], self.y_dim))
+        y_1[:, 1] = 1
+        y_0 = torch.zeros((y_real.shape[0], self.y_dim))
+        y_0[:, 0] = 1
+
+        c_0 = torch.zeros((y_real.shape[0], self.c_dim))
+        # loss_1_1 = self.nelbo_niwae_for(x=x_1, x_hat=x_1, y=y_1, c=c_0, iw=iw)
+
+        # add EV:
+        c_add = torch.zeros((y_real.shape[0], self.c_dim))
+        c_add[:, 0] = y_real
+        # loss_0_1 = self.nelbo_niwae_for(x=x_0, x_hat=x_1, y=y_0, c=c_add, iw=iw)
+
+        # subtract EV:
+        c_sub = torch.zeros((y_real.shape[0], self.c_dim))
+        c_sub[:, 1] = y_real
+        # loss_1_0 = self.nelbo_niwae_for(x=x_1, x_hat=x_0, y=y_1, c=c_sub, iw=iw)
+
+        x = torch.cat((x_1, x_0, x_1), dim=0)
+        x_hat = torch.cat((x_1, x_1, x_0), dim=0)
+        y = torch.cat((y_1, y_0, y_1), dim=0)
+        c = torch.cat((c_0, c_add, c_sub), dim=0)
 
         # identity mapping: x_no_ev
         if x_no_ev is not None:
             y_no_ev = torch.zeros((x_no_ev.shape[0], self.y_dim))
             y_no_ev[:, 0] = 1
             c_no_ev = torch.zeros((x_no_ev.shape[0], self.c_dim))
-            loss_no_ev = self.nelbo_niwae_for(x=x_no_ev, x_hat=x_no_ev, y=y_no_ev, c=c_no_ev, iw=iw)
+            x = torch.cat((x, x_no_ev), dim=0)
+            x_hat = torch.cat((x_hat, x_no_ev), dim=0)
+            y = torch.cat((y, y_no_ev), dim=0)
+            c = torch.cat((c, c_no_ev), dim=0)
+            # loss_no_ev = self.nelbo_niwae_for(x=x_no_ev, x_hat=x_no_ev, y=y_no_ev, c=c_no_ev, iw=iw)
 
         # identity mapping: x_0
-        y_0 = torch.zeros((y_real.shape[0], self.y_dim))
-        y_0[:, 0] = 1
-        c_0 = torch.zeros((y_real.shape[0], self.c_dim))
         if x_no_ev is None:
-            # note: is done already with x_no_ev
-            loss_0_0 = self.nelbo_niwae_for(x=x_0, x_hat=x_0, y=y_0, c=c_0, iw=iw)
+            # note: else it is done already with x_no_ev
+            x = torch.cat((x, x_0), dim=0)
+            x_hat = torch.cat((x_hat, x_0), dim=0)
+            y = torch.cat((y, y_0), dim=0)
+            c = torch.cat((c, c_0), dim=0)
+            # loss_0_0 = self.nelbo_niwae_for(x=x_0, x_hat=x_0, y=y_0, c=c_0, iw=iw)
 
-        # identity mapping: x_1
-        y_1 = torch.zeros((y_real.shape[0], self.y_dim))
-        y_1[:, 1] = 1
-        loss_1_1 = self.nelbo_niwae_for(x=x_1, x_hat=x_1, y=y_1, c=c_0, iw=iw)
+        loss = self.nelbo_niwae_for(x=x, x_hat=x_hat, y=y, c=c, iw=iw)
 
-        # add EV:
-        c_add = torch.zeros((y_real.shape[0], self.c_dim))
-        c_add[:, 0] = y_real
-        loss_0_1 = self.nelbo_niwae_for(x=x_0, x_hat=x_1, y=y_0, c=c_add, iw=iw)
-
-        # subtract EV:
-        c_sub = torch.zeros((y_real.shape[0], self.c_dim))
-        c_sub[:, 1] = y_real
-        loss_1_0 = self.nelbo_niwae_for(x=x_1, x_hat=x_0, y=y_1, c=c_sub, iw=iw)
-
-        # could also handle case of subtracting from x_0 and adding to x_1
-
-        loss = []
-        for i in range(len(loss_1_1)):
-            if x_no_ev is not None:
-                loss.append((loss_no_ev[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i]) / 4.0)
-            else:
-                loss.append((loss_0_0[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i]) / 4.0)
+        # loss = []
+        # for i in range(len(loss_1_1)):
+        #     if x_no_ev is not None:
+        #         loss.append((loss_no_ev[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i]) / 4.0)
+        #     else:
+        #         loss.append((loss_0_0[i] + loss_1_1[i] + loss_0_1[i] + loss_1_0[i]) / 4.0)
         return tuple(loss)
 
     def loss(self, sample, iw=0):

@@ -4,7 +4,8 @@ from torch import nn
 
 HIDDEN_DIM = 64
 NUM_LAYERS = 2
-BIDIRECTIONAL = True
+BIDIRECTIONAL = False
+
 
 class Encoder(nn.Module):
     def __init__(self, z_dim, x_dim, y_dim=0):
@@ -12,6 +13,9 @@ class Encoder(nn.Module):
         self.z_dim = z_dim
         self.x_dim = x_dim
         self.y_dim = y_dim
+        self.initializer = nn.Linear(x_dim + y_dim,
+                                     2 * NUM_LAYERS * (1 + BIDIRECTIONAL) * HIDDEN_DIM)
+        self.elu_i = nn.ELU()
         self.embedder = nn.Linear(1 + y_dim, HIDDEN_DIM)
         self.elu = nn.ELU()
         self.rnn = nn.LSTM(
@@ -19,22 +23,29 @@ class Encoder(nn.Module):
             hidden_size=HIDDEN_DIM,
             num_layers=NUM_LAYERS,
             bidirectional=BIDIRECTIONAL,
-            batch_first=True,
+            batch_first=False,
             # bias=True,
             # dropout=0,
         )
         self.regressor = nn.Linear(NUM_LAYERS * (1+BIDIRECTIONAL) * HIDDEN_DIM, 2 * z_dim)
 
     def encode(self, x, y=None):
-        x = x.unsqueeze(2)
         if y is not None:
+            xy = torch.cat((x, y), dim=-1)
             y = y.unsqueeze(1).expand(y.size()[0], self.x_dim, self.y_dim)
-            x = torch.cat((x, y), dim=2)
+            x = torch.cat((x.unsqueeze(2), y), dim=2)
+        else:
+            xy = x
+            x = x.unsqueeze(2)
+
+        states = self.elu(self.initializer(xy)).view(
+            x.size()[0], NUM_LAYERS * (1 + BIDIRECTIONAL), 2 * HIDDEN_DIM)
+        (h_0, c_0) = states.split(HIDDEN_DIM, dim=-1)
 
         input = self.elu(self.embedder(x))
         # print(x.size())
         # print(input.size())
-        _, (h_n, _) = self.rnn(input=input)
+        _, (h_n, _) = self.rnn(input.transpose(1, 0), (h_0.transpose(1, 0), c_0.transpose(1, 0)))
 
         # h_n of shape (num_layers * num_directions, batch, hidden_size)
         # reshape to (batch, last_hidden_outputs)
