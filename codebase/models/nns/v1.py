@@ -10,11 +10,11 @@ class Encoder(nn.Module):
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.net = nn.Sequential(
-            nn.Linear(x_dim + y_dim, 32),
+            nn.Linear(x_dim + y_dim, 128),
             nn.ELU(),
-            nn.Linear(32, 32),
+            nn.Linear(128, 64),
             nn.ELU(),
-            nn.Linear(32, 32),
+            nn.Linear(64, 32),
             nn.ELU(),
             nn.Linear(32, 2 * z_dim),
         )
@@ -35,11 +35,11 @@ class Decoder(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(z_dim + y_dim + c_dim, 32),
             nn.ELU(),
-            nn.Linear(32, 32),
+            nn.Linear(32, 64),
             nn.ELU(),
-            nn.Linear(32, 32),
+            nn.Linear(64, 128),
             nn.ELU(),
-            nn.Linear(32, 2*x_dim),
+            nn.Linear(128, 2*x_dim),
         )
 
     def decode(self, z, y=None, c=None):

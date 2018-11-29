@@ -16,7 +16,7 @@ class Encoder(nn.Module):
         self.initializer = nn.Linear(x_dim + y_dim,
                                      2 * NUM_LAYERS * (1 + BIDIRECTIONAL) * HIDDEN_DIM)
         self.elu_i = nn.ELU()
-        self.embedder = nn.Linear(1 + y_dim, HIDDEN_DIM)
+        self.embedder = nn.Linear(1 + 1 + y_dim, HIDDEN_DIM)
         self.elu = nn.ELU()
         self.rnn = nn.LSTM(
             input_size=HIDDEN_DIM,
@@ -32,11 +32,17 @@ class Encoder(nn.Module):
     def encode(self, x, y=None):
         if y is not None:
             xy = torch.cat((x, y), dim=-1)
-            y = y.unsqueeze(1).expand(y.size()[0], self.x_dim, self.y_dim)
-            x = torch.cat((x.unsqueeze(2), y), dim=2)
         else:
             xy = x
-            x = x.unsqueeze(2)
+
+        x = x.unsqueeze(2)
+        position = torch.arange(self.x_dim, dtype=torch.float) / (0.5 * (self.x_dim - 1)) - 1.0
+        position = position.view(1, self.x_dim).expand(x.size()[0], self.x_dim).unsqueeze(2)
+        x = torch.cat((x, position), dim=2)
+
+        if y is not None:
+            y = y.unsqueeze(1).expand(y.size()[0], self.x_dim, self.y_dim)
+            x = torch.cat((x, y), dim=2)
 
         states = self.elu(self.initializer(xy)).view(
             x.size()[0], NUM_LAYERS * (1 + BIDIRECTIONAL), 2 * HIDDEN_DIM)
@@ -66,7 +72,7 @@ class Decoder(nn.Module):
                                      2 * NUM_LAYERS * (1+BIDIRECTIONAL) * HIDDEN_DIM)
         self.elu = nn.ELU()
         self.rnn = nn.LSTM(
-            input_size=z_dim + y_dim + c_dim,
+            input_size=z_dim + y_dim + c_dim + 1,
             hidden_size=HIDDEN_DIM,
             num_layers=NUM_LAYERS,
             bidirectional=BIDIRECTIONAL,
@@ -89,6 +95,10 @@ class Decoder(nn.Module):
         (h_0, c_0) = states.split(HIDDEN_DIM, dim=-1)
 
         input = zyc.unsqueeze(1).expand(*zyc.size()[0:-1], self.x_dim, zyc.size()[-1])
+
+        position = torch.arange(self.x_dim, dtype=torch.float) / (0.5 * (self.x_dim - 1)) - 1.0
+        position = position.view(1, self.x_dim).expand(z.size()[0], self.x_dim).unsqueeze(2)
+        input = torch.cat((input, position), dim=2)
 
         output, (_, _) = self.rnn(input.transpose(1, 0), (h_0.transpose(1, 0), c_0.transpose(1, 0)))
         out = self.regressor(output.transpose(1, 0)).transpose(-2, -1).reshape(z.size()[0], -1)

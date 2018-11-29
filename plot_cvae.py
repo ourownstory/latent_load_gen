@@ -2,9 +2,11 @@ import torch
 from matplotlib import pyplot as plt
 import numpy as np
 from plot_vae import reverse_log_norm
+from codebase.utils import get_shift_scale
 
 
-def make_image_load(model, log_normal=False, shift_scale=(0, 1)):
+def make_image_load(model, log_normal=False):
+    shift_scale = get_shift_scale(model.x_dim==24, log_normal)
     model.eval()
     num_sample = 2*4
     sample_z = model.sample_z(batch=num_sample)
@@ -42,7 +44,8 @@ def make_image_load(model, log_normal=False, shift_scale=(0, 1)):
     plt.show()
 
 
-def make_image_load_z(model, log_normal=False, shift_scale=(0, 1)):
+def make_image_load_z(model, log_normal=False):
+    shift_scale = get_shift_scale(model.x_dim == 24, log_normal)
     model.eval()
     z_dim = model.z_dim
     z_values = [-2, -0.5, 0.5, 2]
@@ -95,7 +98,8 @@ def make_image_load_z(model, log_normal=False, shift_scale=(0, 1)):
     plt.show()
 
 
-def make_image_load_c(model, log_normal=False, shift_scale=(0, 1)):
+def make_image_load_c(model, log_normal=False):
+    shift_scale = get_shift_scale(model.x_dim == 24, log_normal)
     model.eval()
     num_sample = 4
     sample_z = model.sample_z(batch=num_sample)

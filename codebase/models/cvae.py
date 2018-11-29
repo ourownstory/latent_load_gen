@@ -207,13 +207,11 @@ class CVAE(nn.Module):
         return self.sample_x_given(z, y, c)
 
     def sample_x_given(self, z, y, c):
-        return self.dec.decode(z, y, c)
+        return self.dec.decode(torch.FloatTensor(z), torch.FloatTensor(y), torch.FloatTensor(c))
 
     def set_to_eval(self):
         self.warmup = False
         self.var_pen = 1
-
-
 
 
 class GMCVAE(CVAE):
