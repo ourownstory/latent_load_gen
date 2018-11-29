@@ -13,7 +13,7 @@ parser.add_argument('--z',         type=int, default=5,     help="Number of late
 parser.add_argument('--iter_max',  type=int, default=1000, help="Number of training iterations")
 parser.add_argument('--iter_save', type=int, default=1000, help="Save model every n iterations")
 parser.add_argument('--run',       type=int, default=0,     help="Run ID. In case you want to run replicates")
-parser.add_argument('--mode',      type=str, default='train',help="Flag for train, val, test, plot")
+parser.add_argument('--mode',      type=str, default='plot',help="Flag for train, val, test, plot")
 parser.add_argument('--batch',     type=int, default=32,   help="Batch size")
 parser.add_argument('--lr',        type=float, default=4e-4,help="Learning Rate(initial)")
 parser.add_argument('--warmup',    type=int, default=0,     help="Fix variance during first 1/4 of training")
