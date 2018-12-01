@@ -7,6 +7,7 @@ from codebase.models.cvae import CVAE
 from torch.nn import functional as F
 from HourlyLoadDataset import HourlyLoad2017Dataset
 from ConditionalLoadDataset import ConditionalLoadDataset
+from LoadDataset2 import LoadDataset2
 
 
 def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
@@ -373,3 +374,4 @@ def get_shift_scale(hourly, log_normal):
             # computed on train, without log, for 96resolution
             shift_scale = (1.2456642410923986, 1.6478924381994144)
     return shift_scale
+
