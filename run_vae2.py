@@ -12,8 +12,7 @@ from LoadDataset2 import LoadDataset2
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--model',     type=str, default='v1', help="model_architecture: v1, lstm")
 parser.add_argument('--z',         type=int, default=5,     help="Number of latent dimensions")
-parser.add_argument('--iter_max',  type=int, default=10000, help="Number of training iterations")
-parser.add_argument('--iter_save', type=int, default=1000, help="Save model every n iterations")
+parser.add_argument('--num_epochs',  type=int, default=10, help="Number of training iterations")
 parser.add_argument('--run',       type=int, default=0,     help="Run ID. In case you want to run replicates")
 parser.add_argument('--mode',      type=str, default='train',help="Flag for train, val, test, plot")
 parser.add_argument('--batch',     type=int, default=64,   help="Batch size")
@@ -24,13 +23,13 @@ parser.add_argument('--lr_gamma',  type=float, default=0.5, help="Anneling facto
 parser.add_argument('--lr_m_num',  type=int, default=3,     help="Number of lr anneling milestones")
 parser.add_argument('--k',         type=int, default=1,    help="Number mixture components in MoG prior")
 parser.add_argument('--iw',        type=int, default=0,    help="Number of IWAE samples for training")
-parser.add_argument('--filter_ev',type=int, default=1,    help="remove car values where days-total is less than 0.1kWh")
-parser.add_argument('--hourly',    type=int, default=0,    help="hourly data instead of 15min resolution data")
+parser.add_argument('--filter_ev',type=int, default=0,    help="remove car values where days-total is less than 0.1kWh")
+parser.add_argument('--hourly',    type=int, default=1,    help="hourly data instead of 15min resolution data")
 # parser.add_argument('--run_car',    type=int, default=0,    help="whether to run the second model or first")
 args = parser.parse_args()
 
-lr_milestones = [int(args.iter_max*((i+1)/(args.lr_m_num+1))) for i in range(args.lr_m_num)]
-print("lr_milestones", lr_milestones, "lr", [args.lr*args.lr_gamma**i for i in range(args.lr_m_num)])
+lr_milestone_every = max(1, (args.num_epochs -1)//args.lr_m_num)
+# lr_milestones = [int(args.iter_max*((i+1)/(args.lr_m_num+1))) for i in range(args.lr_m_num)]
 
 layout = [
     ('{:s}',  "gmcvae" if args.k > 1 else "cvae"),
@@ -41,7 +40,7 @@ layout = [
     ('iw{:02d}',  args.iw),
     ('vp{:02d}',  args.var_pen),
     ('lr{:.4f}',  args.lr),
-    ('it{:05d}', args.iter_max),
+    ('epo{:05d}', args.num_epochs),
     ('run{:02d}', args.run)
 ]
 model_name = '_'.join([t.format(v) for (t, v) in layout])
@@ -75,9 +74,9 @@ if args.mode == 'train':
         device=device,
         tqdm=tqdm.tqdm,
         writer=writer,
-        lr=args.lr, lr_gamma=args.lr_gamma, lr_milestones=lr_milestones,
+        lr=args.lr, lr_gamma=args.lr_gamma, lr_milestone_every=lr_milestone_every,
         iw=args.iw,
-        iter_max=args.iter_max, iter_save=args.iter_save
+        num_epochs=args.num_epochs
     )
 
 else:

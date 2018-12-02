@@ -3,6 +3,7 @@ import torch
 from codebase import utils as ut
 from torch import optim
 from codebase.models.cvae import CVAE
+from codebase.models.vae2 import VAE2
 
 
 def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones, iw,
@@ -121,61 +122,72 @@ def train_c(model, train_loader,  train_loader_ev, device, tqdm, writer, lr, lr_
                 return
 
 
-def train2(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones, iw,
-          iter_max=np.inf, iter_save=np.inf,
-          model_name='model', reinitialize=False):
-    assert isinstance(model, CVAE)
-
+def train2(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestone_every, iw,
+           num_epochs, model_name='model', reinitialize=False):
+    assert isinstance(model, VAE2)
     # Optimization
     if reinitialize:
         model.apply(ut.reset_weights)
+
+    num_batches_per_epoch = len(train_loader.dataset) // train_loader.batch_size
+    lr_milestones = [(1 + lr_milestone_every * i) * num_batches_per_epoch for i in
+                     range(num_epochs // lr_milestone_every - 1)]
+    print("lr_milestones", lr_milestones, "lr", [lr * lr_gamma ** i for i in range(len(lr_milestones))])
+
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=lr_gamma)
 
     # model.warmup = True
     # print("warmup", model.warmup)
 
-    iterator = iter(train_loader)
+    # iterator = iter(train_loader)
 
     i = 0
-    with tqdm(total=iter_max) as pbar:
-        while True:
+    epoch = 0
+    with tqdm(total=num_batches_per_epoch*num_epochs) as pbar:
+        while epoch < num_epochs:
+            epoch += 1
             i += 1  # i is num of gradient steps taken by end of loop iteration
-            if i == (iter_max // 4):
+            print("Epoch:", epoch)
+            if epoch > 1:
                 # start learning variance
                 model.warmup = False
-            optimizer.zero_grad()
+            for batch_idx, sample in enumerate(train_loader):
+                optimizer.zero_grad()
 
-            # must handle two data-loader queues...
-            try:
-                sample = next(iterator)
-            except StopIteration:
-                iterator = iter(train_loader)
-                sample = next(iterator)
+                # # must handle two data-loader queue...
+                # try:
+                #     sample = next(iterator)
+                # except StopIteration:
+                #     iterator = iter(train_loader)
+                #     sample = next(iterator)
 
-            # run model
-            loss, summaries = model.loss(
-                x=sample["other"], meta=sample["meta"], c=None, iw=0
-            )
+                # run model
+                loss, summaries = model.loss(
+                    x=sample["other"],
+                    meta=None,
+                    c=None,
+                    iw=iw
+                )
 
-            loss.backward()
-            optimizer.step()
-            scheduler.step()
+                loss.backward()
+                optimizer.step()
+                scheduler.step()
 
-            # Feel free to modify the progress bar
-            pbar.set_postfix(loss='{:.2e}'.format(loss))
-            pbar.update(1)
+                # Feel free to modify the progress bar
+                pbar.set_postfix(loss='{:.2e}'.format(loss))
+                pbar.update(1)
 
-            # Log summaries
-            if i % 50 == 0:
-                ut.log_summaries(writer, summaries, i)
+                # Log summaries
+                if i % 50 == 0:
+                    ut.log_summaries(writer, summaries, i)
 
-            # Save model
-            if i % iter_save == 0:
-                ut.save_model_by_name(model, i)
-                # print(optimizer.param_groups[0]['lr'])
-                # print("warmup", model.warmup)
-                print("\n", [(key, v.item()) for key, v in summaries.items()])
+                # Save model
+                if i % iter_save == 0:
+                    ut.save_model_by_name(model, i)
+                    # print(optimizer.param_groups[0]['lr'])
+                    # print("warmup", model.warmup)
+                    print("\n", [(key, v.item()) for key, v in summaries.items()])
 
-            if i == iter_max:
-                return
+                if i == iter_max:
+                    return

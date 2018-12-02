@@ -109,7 +109,7 @@ class VAE2(nn.Module):
         kl = kl_elem.mean(1).mean(-1)
         return niwae, kl, rec, rec_mse, rec_var
 
-    def loss(self, x, meta, c, iw=0):
+    def loss(self, x, meta=None, c=None, iw=0):
         nelbo, kl, rec, rec_mse, rec_var = self.nelbo_niwae(
             x=x,
             y=meta,

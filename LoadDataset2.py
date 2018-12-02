@@ -2,6 +2,7 @@ from torch.utils.data import Dataset, DataLoader
 import os
 import pandas as pd
 import numpy as np
+import torch
 
 
 class LoadDataset2(Dataset):
@@ -55,16 +56,18 @@ class LoadDataset2(Dataset):
         # always shift and scale
         self.car = (self.car - self.shift_scale["car"][0]) / self.shift_scale["car"][1]
         self.other = (self.other - self.shift_scale["other"][0]) / self.shift_scale["other"][1]
+        self.car = torch.FloatTensor(self.car)
+        self.other = torch.FloatTensor(self.other)
 
     def __len__(self):
-        return self.other.shape[0]
+        return self.other.size()[0]
 
     def __getitem__(self, idx):
         # TODO: add metadata
         sample = {
             "car": self.car[idx],
             "other": self.other[idx],
-            "meta": None,
+            # "meta": None,
         }
         return sample
 
