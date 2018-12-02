@@ -176,8 +176,9 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
             # validate at each epoch end
             ut.evaluate_lower_bound2(model, val_set, run_iwae=(iw >= 1), mode='val', verbose=False)
 
-            if epoch % 10 == 0:   # save
-                ut.save_model_by_name(model, epoch)
+            if epoch % 10 == 0:   # save interim
+                # ut.save_model_by_name(model, epoch)
+                pass
 
         # save in the end
         ut.save_model_by_name(model, epoch)
