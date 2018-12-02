@@ -8,20 +8,20 @@ from pprint import pprint
 from plot_cvae import make_image_load, make_image_load_z, make_image_load_c
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--model',     type=str, default='lstm', help="model_architecture: v1, lstm")
+parser.add_argument('--model',     type=str, default='v1', help="model_architecture: v1, lstm")
 parser.add_argument('--z',         type=int, default=5,     help="Number of latent dimensions")
-parser.add_argument('--iter_max',  type=int, default=20000, help="Number of training iterations")
+parser.add_argument('--iter_max',  type=int, default=10000, help="Number of training iterations")
 parser.add_argument('--iter_save', type=int, default=1000, help="Save model every n iterations")
 parser.add_argument('--run',       type=int, default=0,     help="Run ID. In case you want to run replicates")
-parser.add_argument('--mode',      type=str, default='train',help="Flag for train, val, test, plot")
+parser.add_argument('--mode',      type=str, default='plot',help="Flag for train, val, test, plot")
 parser.add_argument('--batch',     type=int, default=32,   help="Batch size")
-parser.add_argument('--lr',        type=float, default=1e-3,help="Learning Rate(initial)")
+parser.add_argument('--lr',        type=float, default=4e-4,help="Learning Rate(initial)")
 parser.add_argument('--warmup',    type=int, default=0,     help="Fix variance during first 1/4 of training")
-parser.add_argument('--var_pen',   type=int, default=10,     help="Penalty for variance - multiplied with var loss term")
+parser.add_argument('--var_pen',   type=int, default=3,     help="Penalty for variance - multiplied with var loss term")
 parser.add_argument('--lr_gamma',  type=float, default=0.5, help="Anneling factor of lr")
-parser.add_argument('--lr_m_num',  type=int, default=4,     help="Number of lr anneling milestones")
+parser.add_argument('--lr_m_num',  type=int, default=3,     help="Number of lr anneling milestones")
 parser.add_argument('--k',         type=int, default=10,    help="Number mixture components in MoG prior")
-parser.add_argument('--iw',        type=int, default=0,    help="Number of IWAE samples for training")
+parser.add_argument('--iw',        type=int, default=10,    help="Number of IWAE samples for training")
 parser.add_argument('--log_normal',type=int, default=0,    help="log-transform data")
 parser.add_argument('--hourly',    type=int, default=0,    help="hourly data instead of 15min resolution data")
 args = parser.parse_args()
@@ -32,11 +32,13 @@ print("lr_milestones", lr_milestones, "lr", [args.lr*args.lr_gamma**i for i in r
 layout = [
     ('{:s}',  "gmcvae" if args.k > 1 else "cvae"),
     ('{:s}',  args.model),
+    ('x{:02d}',  24 if args.hourly==1 else 96),
     ('z{:02d}',  args.z),
     ('k{:02d}',  args.k),
+    ('iw{:02d}',  args.iw),
+    ('vp{:02d}',  args.var_pen),
     ('lr{:.4f}',  args.lr),
-    ('x{:02d}',  24 if args.hourly==1 else 96),
-    ('iter{:05d}', args.iter_max),
+    ('it{:05d}', args.iter_max),
     ('run{:02d}', args.run)
 ]
 model_name = '_'.join([t.format(v) for (t, v) in layout])
@@ -87,6 +89,6 @@ if args.mode in ['val', 'test']:
     ut.evaluate_lower_bound_conditional(model, val_set, run_iwae=(args.iw>=1))
 
 if args.mode == 'plot':
-    make_image_load(model, log_normal=args.log_normal)
+    # make_image_load(model, log_normal=args.log_normal)
     make_image_load_z(model, log_normal=args.log_normal)
     make_image_load_c(model, log_normal=args.log_normal)

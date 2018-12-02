@@ -4,9 +4,11 @@ import shutil
 import torch
 from codebase.models.vae import VAE, GMVAE
 from codebase.models.cvae import CVAE
+from codebase.models.vae2 import VAE2
 from torch.nn import functional as F
 from HourlyLoadDataset import HourlyLoad2017Dataset
 from ConditionalLoadDataset import ConditionalLoadDataset
+from LoadDataset2 import LoadDataset2
 
 
 def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
@@ -208,7 +210,7 @@ def evaluate_lower_bound(model, eval_set, run_iwae=False):
 
 def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
     check_model = isinstance(model, CVAE)
-    assert check_model, "This function is only intended for VAE and GMVAE"
+    assert check_model, "This function is only intended for CVAE and GMCVAE"
 
     print('*' * 80)
     print("LOG-LIKELIHOOD LOWER BOUNDS ON TEST SUBSET")
@@ -246,6 +248,49 @@ def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
             niwae, kl, rec, rec_mse, rec_var = compute_metrics(repeat)
             print("Negative IWAE-{}: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
                 iw, niwae, kl, rec, rec_mse, rec_var))
+
+
+def evaluate_lower_bound2(model, eval_set, run_iwae=False, mode='val', verbose=True):
+    check_model = isinstance(model, VAE2)
+    assert check_model, "This function is only intended for VAE2 and GMVAE2"
+
+    if verbose:
+        print('*' * 80)
+        print("LOG-LIKELIHOOD LOWER BOUNDS ON {} SUBSET".format(mode))
+        print('*' * 80)
+
+    x_inputs = eval_set
+    x_inputs['iw'] = 0
+    torch.manual_seed(0)
+
+    def detach_torch_tuple(args):
+        return (v.detach() for v in args)
+
+    def compute_metrics(repeat):
+        metrics = [0, 0, 0, 0, 0]
+        for _ in range(repeat):
+            niwae, kl, rec, rec_mse, rec_var = detach_torch_tuple(
+                model.nelbo_niwae(**x_inputs)
+            )
+            metrics[0] += niwae / repeat
+            metrics[1] += kl / repeat
+            metrics[2] += rec / repeat
+            metrics[3] += rec_mse / repeat
+            metrics[4] += rec_var / repeat
+        return metrics
+
+    # Run multiple times to get low-var estimate
+    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(100)
+    print("{}-NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
+        mode, nelbo, kl, rec, rec_mse, rec_var))
+
+    if run_iwae:
+        for iw in [1, 10, 100]:
+            repeat = max(100 // iw, 1)  # Do at least 100 iterations
+            x_inputs['iw'] = iw
+            niwae, kl, rec, rec_mse, rec_var = compute_metrics(repeat)
+            print("{}-Negative IWAE-{}: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
+                mode, iw, niwae, kl, rec, rec_mse, rec_var))
 
 
 def save_model_by_name(model, global_step):
@@ -373,3 +418,4 @@ def get_shift_scale(hourly, log_normal):
             # computed on train, without log, for 96resolution
             shift_scale = (1.2456642410923986, 1.6478924381994144)
     return shift_scale
+

@@ -2,7 +2,7 @@ import torch
 from codebase import utils as ut
 from torch import nn
 
-HIDDEN_DIM = 64
+HIDDEN_DIM = 128
 NUM_LAYERS = 2
 BIDIRECTIONAL = False
 
