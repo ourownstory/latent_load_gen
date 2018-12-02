@@ -82,13 +82,16 @@ class VAE2(nn.Module):
         q_shape = list(qm.shape)
         qm = qm.unsqueeze(1).expand(q_shape[0], iw, *q_shape[1:])
         qv = qv.unsqueeze(1).expand(q_shape[0], iw, *q_shape[1:])
+
         # replicate x, y, c
         x_shape = list(x.shape)
         x = x.unsqueeze(1).expand(x_shape[0], iw, *x_shape[1:])
-        y_shape = list(y.shape)
-        y = y.unsqueeze(1).expand(y_shape[0], iw, *y_shape[1:])
-        c_shape = list(c.shape)
-        c = c.unsqueeze(1).expand(c_shape[0], iw, *c_shape[1:])
+        if y is not None:
+            y_shape = list(y.shape)
+            y = y.unsqueeze(1).expand(y_shape[0], iw, *y_shape[1:])
+        if c is not None:
+            c_shape = list(c.shape)
+            c = c.unsqueeze(1).expand(c_shape[0], iw, *c_shape[1:])
 
         # sample z(1)...z(iw) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)
@@ -133,12 +136,16 @@ class VAE2(nn.Module):
             self.z_prior[0].expand(batch, self.z_dim),
             self.z_prior[1].expand(batch, self.z_dim))
 
-    def sample_x(self, batch, y, c):
+    def sample_x(self, batch, y=None, c=None):
         z = self.sample_z(batch)
         return self.sample_x_given(z, y, c)
 
-    def sample_x_given(self, z, y, c):
-        return self.dec.decode(torch.FloatTensor(z), torch.FloatTensor(y), torch.FloatTensor(c))
+    def sample_x_given(self, z, y=None, c=None):
+        if y is not None:
+            y = torch.FloatTensor(y)
+        if c is not None:
+            c = torch.FloatTensor(c)
+        return self.dec.decode(torch.FloatTensor(z), y, c)
 
     def set_to_eval(self):
         self.warmup = False
@@ -146,9 +153,10 @@ class VAE2(nn.Module):
 
 
 class GMVAE2(VAE2):
-    def __init__(self, nn='v1', name='gmvae', z_dim=2, x_dim=24, warmup=False, var_pen=1,
+    def __init__(self, nn='v1', name='gmvae2', z_dim=2, x_dim=24, c_dim=0,
+                 warmup=False, var_pen=1,
                  k=100):
-        super().__init__(nn, name, z_dim, x_dim, warmup, var_pen=var_pen)
+        super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen)
         # Mixture of Gaussians prior
         self.k = k
         self.z_pre = torch.nn.Parameter(

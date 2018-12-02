@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 
-def reverse_log_norm(x, shift_scale, log_normal):
+def reverse_log_norm(x, shift_scale, log_normal=False):
     z = shift_scale[1]*x + shift_scale[0]
     if log_normal:
         z = np.exp(z)
