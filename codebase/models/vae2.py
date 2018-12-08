@@ -172,3 +172,91 @@ class GMVAE2(VAE2):
         # print("log_prob_net:", log_prob_net.mean(), "log_prob_prior:", log_prob_prior.mean())
         kl_elem = log_prob_net - log_prob_prior
         return kl_elem
+
+
+class VAE2CAR(VAE2):
+    def __init__(self, nn='v1', name='vae2car', z_dim=2, x_dim=24, c_dim=0,
+                 warmup=False, var_pen=1,
+                 use_model=None):
+        super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen)
+        self.use_model = use_model
+
+    def negative_elbo_bound_for(self, x, y, c):
+        # get conditional by encoding c, where c is expected to be x_use
+        z_use_mu, z_use_var = self.use_model.enc.encode(
+            x=c,
+            y=y,
+        )
+
+        # TODO: decide
+        # z_use = ut.sample_gaussian(z_use_mu, z_use_var)
+        z_use = z_use_mu
+
+        return super().negative_elbo_bound_for(x, y=y, c=z_use)
+
+    # def negative_iwae_bound_for(self, x, y, c, iw):
+    #     raise NotImplementedError
+
+    def negative_iwae_bound_for(self, x, y, c, iw):
+        """
+        Computes the Importance Weighted Autoencoder Bound
+        Additionally, we also compute the ELBO KL and reconstruction terms
+
+        Returns:
+            niwae: tensor: (): Negative IWAE bound
+            kl: tensor: (): ELBO KL divergence to prior
+            rec: tensor: (): ELBO Reconstruction term
+        """
+        # get conditionals
+        z_use_mu, z_use_var = self.use_model.enc.encode(x=c, y=y)
+
+        # replicate c
+        z_use_shape = list(z_use_mu.shape)
+        z_use_mu = z_use_mu.unsqueeze(1).expand(z_use_shape[0], iw, *z_use_shape[1:])
+        z_use_var = z_use_var.unsqueeze(1).expand(z_use_shape[0], iw, *z_use_shape[1:])
+        # sample multiple c
+        c = ut.sample_gaussian(z_use_mu, z_use_var)
+
+        # replicate x, y
+        x_shape = list(x.shape)
+        x = x.unsqueeze(1).expand(x_shape[0], iw, *x_shape[1:])
+        if y is not None:
+            y_shape = list(y.shape)
+            y = y.unsqueeze(1).expand(y_shape[0], iw, *y_shape[1:])
+
+        # encode
+        qm, qv = self.enc.encode(x, y=y, c=c)
+
+        # sample z(1)...z(iw) (for monte carlo estimate of p(x|z(1))
+        z = ut.sample_gaussian(qm, qv)
+
+        kl_elem = self.kl_elem(z, qm, qv)
+
+        # decode
+        mu, var = self.dec.decode(z, y=y, c=c)
+
+        nll, rec_mse, rec_var = ut.nlog_prob_normal(
+            mu=mu, y=x, var=var, fixed_var=self.warmup, var_pen=self.var_pen)
+        log_prob, rec_mse, rec_var = -nll, rec_mse.mean(), rec_var.mean()
+
+        niwae = -ut.log_mean_exp(log_prob - kl_elem, dim=1).mean(-1)
+
+        # reduce
+        rec = -log_prob.mean(1).mean(-1)
+        kl = kl_elem.mean(1).mean(-1)
+        return niwae, kl, rec, rec_mse, rec_var
+
+    def sample_x(self, batch, y=None, c=None):
+        if c is None:
+            c = self.use_model.sample_z(batch)
+        z = self.sample_z(batch)
+        return self.sample_x_given(z, y, c)
+
+    def sample_x_given(self, z, y=None, c=None):
+        if y is not None:
+            y = torch.FloatTensor(y)
+        if c is not None:
+            c = torch.FloatTensor(c)
+        else:
+            c = torch.zeros((z.size()[0], self.use_model.z_dim))
+        return self.dec.decode(torch.FloatTensor(z), y, c)
