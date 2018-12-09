@@ -9,6 +9,7 @@ class VAE2(nn.Module):
     def __init__(self, nn='v1', name='vae2', z_dim=10, x_dim=24, c_dim=0,
                  warmup=False, var_pen=1, y_dim=0):
         super().__init__()
+        print('ladedah')
         print('x_dim', x_dim)
         print('y_dim', y_dim)
         self.name = name
@@ -184,8 +185,8 @@ class GMVAE2(VAE2):
 class VAE2CAR(VAE2):
     def __init__(self, nn='v1', name='vae2car', z_dim=2, x_dim=24, c_dim=0,
                  warmup=False, var_pen=1,
-                 use_model=None):
-        super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen)
+                 use_model=None, y_dim=4):
+        super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen, y_dim=y_dim)
         self.use_model = use_model
 
     def negative_elbo_bound_for(self, x, y, c):
@@ -298,9 +299,8 @@ class GMVAE2CAR(VAE2CAR):
     def __init__(self, nn='v1', name='gmvae2car', z_dim=2, x_dim=24, c_dim=0,
                  warmup=False, var_pen=1,
                  use_model=None,
-                 k=100
-                 ):
-        super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen, use_model=use_model)
+                 k=100, y_dim=4):
+        super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen, use_model=use_model, y_dim=y_dim)
         # Mixture of Gaussians prior
         self.k = k
         self.z_pre = torch.nn.Parameter(

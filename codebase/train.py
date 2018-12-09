@@ -141,6 +141,8 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
 
     random.seed(1234) # Initialize the random seed
 
+
+
     # model.warmup = True
     # print("warmup", model.warmup)
     i = 0
@@ -157,10 +159,11 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
                 optimizer.zero_grad()
                 # run model
                 #print(',,,', sample["other"].shape)
+                #print(',,,', sample["meta"].shape)
                 loss, summaries = model.loss(
 
                     x=sample["other"] if not is_car_model else sample["car"],
-                    meta=None,
+                    meta=sample["meta"],
                     c=None if not is_car_model else sample["other"],
                     iw=iw
                 )

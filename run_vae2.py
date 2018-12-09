@@ -130,6 +130,7 @@ def main(call_args=None):
     # parser.add_argument('--run_car',    type=int, default=0,    help="whether to run the second model or first")
     args = parser.parse_args()
 
+    
     if call_args is not None:
         for k, v in call_args.items():
             print("Overriding default arg with call arg: ", k, v)
@@ -140,5 +141,7 @@ def main(call_args=None):
 
 
 if __name__ == '__main__':
-    model = main({"mode": 'load', })
+    print('main called externally')
+    model = main()
+    #model = main({"mode": 'load', })
 

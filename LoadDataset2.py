@@ -22,11 +22,25 @@ class LoadDataset2(Dataset):
         self.filter_ev = filter_ev
         self.log_car = log_car
         # read
+
+        # Will's version
+        filepath = '/Users/willlauer/Desktop/latent_load_gen/data/split'
+        self.use = pd.read_csv(filepath + '/' + mode + '/use.csv').values
+        self.car = pd.read_csv(filepath + '/' + mode + '/car.csv').values
+        self.loessUse = pd.read_csv(filepath + '/' + mode + '/loess_use.csv').values
+        self.loessCar = pd.read_csv(filepath + '/' + mode + '/loess_car.csv').values
+        self.meta = pd.read_csv(filepath + '/' + mode + '/meta.csv').astype('float32').values
+
+
+
+        '''
+        # Oskar's version
         self.use = pd.read_csv(os.path.join(self.root_dir, "use.csv")).values
         self.car = pd.read_csv(os.path.join(self.root_dir, "car.csv")).values
 
         self.loessUse = pd.read_csv(os.path.join(self.root_dir, "loess_use.csv")).values
         self.loessCar = pd.read_csv(os.path.join(self.root_dir, "loess_car.csv")).values
+
 
         # TODO: add reading of metadata
         # store in array like car, other
@@ -35,6 +49,7 @@ class LoadDataset2(Dataset):
         # one-hot for day of week, 2 for temp, 1 for rain
         self.meta = pd.read_csv(os.path.join(self.root_dir, "meta.csv")).astype('float32').values
         # print('meta shape', self.meta.shape)
+        '''
 
 
         # Apply same consistency to the loess smoothed curves
@@ -66,7 +81,7 @@ class LoadDataset2(Dataset):
             self.car = self.car[self.y_real > 1]
             self.other = self.other[self.y_real > 1]
             self.loessOther = self.loessOther[self.y_real > 1]
-
+            self.meta = self.meta[self.y_real > 1]
             self.y_real = None
 
         if self.log_car:
@@ -95,7 +110,6 @@ class LoadDataset2(Dataset):
         # return self.other.shape[0]
 
     def __getitem__(self, idx):
-        # TODO: add metadata
 
         r = np.random.rand()
         #print('---', self.other[idx].shape)
@@ -105,8 +119,6 @@ class LoadDataset2(Dataset):
             "meta": self.meta[idx],
             "loessOther": self.loessOther[idx],
             "loessCar": self.loessCar[idx]
-            # "meta": None,
-            # self.meta[idx]
 
         }
 

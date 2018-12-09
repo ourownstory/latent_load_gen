@@ -33,16 +33,19 @@ def run(args, verbose=False):
     use_model = run_vae2.main({"mode": 'load', })
 
     if args.k > 1:
+        print('36')
         model = GMVAE2CAR(
             nn=args.model, name=model_name,
             z_dim=args.z, x_dim=24 if args.hourly==1 else 96, c_dim=use_model.z_dim,
-            warmup=(args.warmup==1), var_pen=args.var_pen, use_model=use_model, k=args.k
+            warmup=(args.warmup==1), var_pen=args.var_pen, use_model=use_model, k=args.k,
+            y_dim=4
         ).to(device)
     else:
         model = VAE2CAR(
             nn=args.model, name=model_name,
             z_dim=args.z, x_dim=24 if args.hourly==1 else 96, c_dim=use_model.z_dim,
-            warmup=(args.warmup==1), var_pen=args.var_pen, use_model=use_model
+            warmup=(args.warmup==1), var_pen=args.var_pen, use_model=use_model,
+            y_dim=4
         ).to(device)
 
     root_dir = "data/split" if args.hourly else "../data/CS236"
@@ -63,8 +66,7 @@ def run(args, verbose=False):
         )
         val_set = {
             "x": torch.FloatTensor(split_set.car).to(device),
-            # TODO: add metadata
-            "y": None,
+            "y": torch.FloatTensor(split_set.meta).to(device),
             "c": torch.FloatTensor(split_set.other).to(device),
         }
         writer = ut.prepare_writer(model_name, overwrite_existing=True)
@@ -99,8 +101,7 @@ def run(args, verbose=False):
         )
         val_set = {
             "x": torch.FloatTensor(split_set.other).to(device),
-            # TODO: add metadata
-            "y": None,
+            "y": torch.FloatTensor(split_set.meta).to(device),
             "c": torch.FloatTensor(split_set.other).to(device),
         }
         ut.evaluate_lower_bound2(model, val_set, run_iwae=(args.iw>=1), mode=args.mode)
@@ -131,7 +132,7 @@ def main(call_args=None):
     parser.add_argument('--k', type=int, default=10, help="Number mixture components in MoG prior")
     parser.add_argument('--iw', type=int, default=4, help="Number of IWAE samples for training, will be SQARED!")
     parser.add_argument('--log_ev', type=int, default=0, help="log-normalize car values")
-    parser.add_argument('--hourly', type=int, default=1, help="hourly data instead of 15min resolution data")
+    parser.add_argument('--hourly', type=int, default=0, help="hourly data instead of 15min resolution data")
     # parser.add_argument('--run_car',    type=int, default=0,    help="whether to run the second model or first")
     args = parser.parse_args()
 
