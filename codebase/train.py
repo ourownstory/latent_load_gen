@@ -123,7 +123,7 @@ def train_c(model, train_loader,  train_loader_ev, device, tqdm, writer, lr, lr_
 
 
 def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_milestone_every, iw,
-           num_epochs, reinitialize=False):
+           num_epochs, reinitialize=False, is_car_model=False):
     assert isinstance(model, VAE2)
     # Optimization
     if reinitialize:
@@ -135,7 +135,7 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
     print("len(train_loader.dataset)", len(train_loader.dataset), "num_batches_per_epoch", num_batches_per_epoch)
     print("lr_milestones", lr_milestones, "lr", [lr * lr_gamma ** i for i in range(len(lr_milestones))])
 
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=lr_gamma)
 
 
@@ -158,9 +158,10 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
                 # run model
                 #print(',,,', sample["other"].shape)
                 loss, summaries = model.loss(
-                    x=sample["other"],
-                    meta=sample["meta"],
-                    c=None,
+
+                    x=sample["other"] if not is_car_model else sample["car"],
+                    meta=None,
+                    c=None if not is_car_model else sample["other"],
                     iw=iw
                 )
                 loss.backward()
@@ -185,4 +186,3 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
 
         # save in the end
         ut.save_model_by_name(model, epoch)
-

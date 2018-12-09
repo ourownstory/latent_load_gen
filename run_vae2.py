@@ -9,7 +9,7 @@ from plot_vae2 import make_image_load, make_image_load_z
 from LoadDataset2 import LoadDataset2
 
 
-def run(args):
+def run(args, verbose=False):
     layout = [
         ('{:s}',  "gmvae2" if args.k > 1 else "vae2"),
         ('{:s}',  args.model),
@@ -24,7 +24,7 @@ def run(args):
         ('y{:02d}', args.y)
     ]
     model_name = '_'.join([t.format(v) for (t, v) in layout])
-    pprint(vars(args))
+    if verbose: pprint(vars(args))
     print('Model name:', model_name)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -103,11 +103,11 @@ def run(args):
         # TODO: implement make_image_load_meta
 
     if args.mode == 'load':
-        print(model)
+        if verbose: print(model)
     return model
 
 
-def main():
+def main(call_args=None):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--mode', type=str, default='train', help="Flag for train, val, test, plot")
     parser.add_argument('--model', type=str, default='v1', help="model_architecture: v1, lstm")
@@ -130,10 +130,15 @@ def main():
     # parser.add_argument('--run_car',    type=int, default=0,    help="whether to run the second model or first")
     args = parser.parse_args()
 
+    if call_args is not None:
+        for k, v in call_args.items():
+            print("Overriding default arg with call arg: ", k, v)
+            setattr(args, k, v)
+
     # RUN
     return run(args)
 
 
 if __name__ == '__main__':
-    model = main()
+    model = main({"mode": 'load', })
 

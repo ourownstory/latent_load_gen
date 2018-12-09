@@ -22,7 +22,7 @@ class Encoder(nn.Module):
 
     def encode(self, x, y=None, c=None):
         xy = x if y is None else torch.cat((x, y), dim=-1)
-        xyc = xy if c is None else torch.cat((x, c), dim=-1)
+        xyc = xy if c is None else torch.cat((xy, c), dim=-1)
         h = self.net(xyc)
         m, v = ut.gaussian_parameters(h, dim=-1)
         return m, v
