@@ -25,8 +25,24 @@ class LoadDataset2(Dataset):
         self.use = pd.read_csv(os.path.join(self.root_dir, "use.csv")).values
         self.car = pd.read_csv(os.path.join(self.root_dir, "car.csv")).values
 
+        self.loessUse = pd.read_csv(os.path.join(self.root_dir, "loess_use.csv")).values
+        self.loessCar = pd.read_csv(os.path.join(self.root_dir, "loess_car.csv")).values
+
         # TODO: add reading of metadata
-        self.meta = None
+        # store in array like car, other
+        # rows correspond to car , use,
+        # metadata in vector format
+        # one-hot for day of week, 2 for temp, 1 for rain
+        self.meta = pd.read_csv(os.path.join(self.root_dir, "meta.csv")).astype('float32').values
+        # print('meta shape', self.meta.shape)
+
+
+        # Apply same consistency to the loess smoothed curves
+        self.loessCar = np.maximum(self.loessCar, 0)
+        self.loessUse = np.maximum(self.loessUse, 0)
+        self.loessOther = self.loessUse - self.loessCar
+        self.loessOther = np.maximum(self.loessOther, 0)
+
 
         # ensure consistency
         self.car = np.maximum(self.car, 0)
@@ -40,6 +56,8 @@ class LoadDataset2(Dataset):
             # we want to get the other shift scale for all entries, as that model is trained such.
             self.shift_scale = {
                 "other": (np.mean(self.other.reshape(-1)), np.std(self.other.reshape(-1))),
+                "loessOther": (np.mean(self.loessOther.reshape(-1)), np.std(self.loessOther.reshape(-1)))
+                #"other": (np.mean(self.other.reshape(-1)), np.std(self.other.reshape(-1))),
             }
 
         if self.filter_ev:
@@ -47,6 +65,8 @@ class LoadDataset2(Dataset):
             self.y_real = self.car.sum(-1)
             self.car = self.car[self.y_real > 1]
             self.other = self.other[self.y_real > 1]
+            self.loessOther = self.loessOther[self.y_real > 1]
+
             self.y_real = None
 
         if self.log_car:
@@ -55,13 +75,20 @@ class LoadDataset2(Dataset):
 
         if shift_scale is None:
             # add car scaling factors only after potentially filtering out.
-            self.shift_scale["car"] = (np.mean(self.car.reshape(-1)), np.std(self.car.reshape(-1)))
+            self.shift_scale["car"] = (np.mean(self.car), np.std(self.car))
+            self.shift_scale["loessCar"] = (np.mean(self.loessCar.reshape(-1)), np.std(self.loessCar.reshape(-1)))
+
 
         # always shift and scale
         self.car = (self.car - self.shift_scale["car"][0]) / self.shift_scale["car"][1]
         self.other = (self.other - self.shift_scale["other"][0]) / self.shift_scale["other"][1]
+        self.loessOther = (self.loessOther - self.shift_scale["loessOther"][0]) / self.shift_scale["loessOther"][1]
+        self.loessCar = (self.loessCar - self.shift_scale["loessCar"][0]) / self.shift_scale["loessCar"][1]
+
         self.car = torch.FloatTensor(self.car)
         self.other = torch.FloatTensor(self.other)
+        self.loessOther = torch.FloatTensor(self.loessOther)
+        self.loessCar = torch.FloatTensor(self.loessCar)
 
     def __len__(self):
         return self.other.size()[0]
@@ -69,11 +96,28 @@ class LoadDataset2(Dataset):
 
     def __getitem__(self, idx):
         # TODO: add metadata
+
+        r = np.random.rand()
+        #print('---', self.other[idx].shape)
         sample = {
             "car": self.car[idx],
-            "other": self.other[idx],
+            "other": (r * self.other[idx] + (1 - r) * self.other[idx]),
+            "meta": self.meta[idx],
+            "loessOther": self.loessOther[idx],
+            "loessCar": self.loessCar[idx]
             # "meta": None,
+            # self.meta[idx]
+
         }
+
+
+        # Apply loess smoothing to the x entry
+        #x = sample["other"] # batch_size * 96
+        #lx = sample["loessOther"] # batch_size * 96
+        #r = np.expand_dims(np.random.rand(x.shape[0]), 1) # batch_size * 1
+        #smoothedX = (r * x + (1 - r) * lx).float()
+        #sample["other"] = smoothedX
+
         return sample
 
 

@@ -9,6 +9,8 @@ class VAE2(nn.Module):
     def __init__(self, nn='v1', name='vae2', z_dim=10, x_dim=24, c_dim=0,
                  warmup=False, var_pen=1, y_dim=0):
         super().__init__()
+        print('x_dim', x_dim)
+        print('y_dim', y_dim)
         self.name = name
         self.z_dim = z_dim
         self.x_dim = x_dim
@@ -48,6 +50,7 @@ class VAE2(nn.Module):
             return self.negative_iwae_bound_for(x, y, c, iw)
 
     def negative_elbo_bound_for(self, x, y, c):
+        #print(x.shape, y.shape)
         qm, qv = self.enc.encode(x, y=y, c=c)
         # sample z(1) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)
@@ -76,6 +79,8 @@ class VAE2(nn.Module):
             rec: tensor: (): ELBO Reconstruction term
         """
         # encode
+        #print(x.shape, y.shape)
+
         qm, qv = self.enc.encode(x, y=y, c=c)
 
         # replicate qm, qv
@@ -140,7 +145,9 @@ class VAE2(nn.Module):
         z = self.sample_z(batch)
         return self.sample_x_given(z, y, c)
 
+    # y is metadata - can specify
     def sample_x_given(self, z, y=None, c=None):
+        print(z.shape, y.shape, '---')
         if y is not None:
             y = torch.FloatTensor(y)
         if c is not None:
