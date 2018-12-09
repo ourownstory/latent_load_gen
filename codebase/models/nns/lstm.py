@@ -8,15 +8,16 @@ BIDIRECTIONAL = False
 
 
 class Encoder(nn.Module):
-    def __init__(self, z_dim, x_dim, y_dim=0):
+    def __init__(self, z_dim, x_dim, y_dim=0, c_dim=0):
         super().__init__()
         self.z_dim = z_dim
         self.x_dim = x_dim
         self.y_dim = y_dim
-        self.initializer = nn.Linear(x_dim + y_dim,
+        self.c_dim = c_dim
+        self.initializer = nn.Linear(x_dim + y_dim + c_dim,
                                      2 * NUM_LAYERS * (1 + BIDIRECTIONAL) * HIDDEN_DIM)
         self.elu_i = nn.ELU()
-        self.embedder = nn.Linear(1 + 1 + y_dim, HIDDEN_DIM)
+        self.embedder = nn.Linear(1 + 1 + y_dim + c_dim, HIDDEN_DIM)
         self.elu = nn.ELU()
         self.rnn = nn.LSTM(
             input_size=HIDDEN_DIM,
@@ -29,11 +30,12 @@ class Encoder(nn.Module):
         )
         self.regressor = nn.Linear(NUM_LAYERS * (1+BIDIRECTIONAL) * HIDDEN_DIM, 2 * z_dim)
 
-    def encode(self, x, y=None):
-        if y is not None:
-            xy = torch.cat((x, y), dim=-1)
-        else:
-            xy = x
+    def encode(self, x, y=None, c=None):
+        xy = x if y is None else torch.cat((x, y), dim=-1)
+        xyc = xy if c is None else torch.cat((xy, c), dim=-1)
+        states = self.elu(self.initializer(xyc)).view(
+            x.size()[0], NUM_LAYERS * (1 + BIDIRECTIONAL), 2 * HIDDEN_DIM)
+        (h_0, c_0) = states.split(HIDDEN_DIM, dim=-1)
 
         x = x.unsqueeze(2)
         position = torch.arange(self.x_dim, dtype=torch.float) / (0.5 * (self.x_dim - 1)) - 1.0
@@ -41,12 +43,11 @@ class Encoder(nn.Module):
         x = torch.cat((x, position), dim=2)
 
         if y is not None:
-            y = y.unsqueeze(1).expand(y.size()[0], self.x_dim, self.y_dim)
+            y = y.unsqueeze(1).expand(x.size()[0], self.x_dim, self.y_dim)
             x = torch.cat((x, y), dim=2)
-
-        states = self.elu(self.initializer(xy)).view(
-            x.size()[0], NUM_LAYERS * (1 + BIDIRECTIONAL), 2 * HIDDEN_DIM)
-        (h_0, c_0) = states.split(HIDDEN_DIM, dim=-1)
+        if c is not None:
+            c = c.unsqueeze(1).expand(x.size()[0], self.x_dim, self.c_dim)
+            x = torch.cat((x, c), dim=2)
 
         input = self.elu(self.embedder(x))
         # print(x.size())

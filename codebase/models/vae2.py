@@ -28,7 +28,7 @@ class VAE2(nn.Module):
         self.z_prior_v = torch.nn.Parameter(torch.ones(1), requires_grad=False)
         self.z_prior = (self.z_prior_m, self.z_prior_v)
 
-    def kl_elem(self, z, qm, qv):
+    def kl_elementwise(self, z, qm, qv):
         kl_elem = ut.kl_normal(qm, qv, self.z_prior_m, self.z_prior_v)
         return kl_elem
 
@@ -52,7 +52,7 @@ class VAE2(nn.Module):
         # sample z(1) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)
 
-        kl = self.kl_elem(z, qm, qv)
+        kl = self.kl_elementwise(z, qm, qv)
 
         # decode
         mu, var = self.dec.decode(z, y=y, c=c)
@@ -96,7 +96,7 @@ class VAE2(nn.Module):
         # sample z(1)...z(iw) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)
 
-        kl_elem = self.kl_elem(z, qm, qv)
+        kl_elem = self.kl_elementwise(z, qm, qv)
 
         # decode
         mu, var = self.dec.decode(z, y=y, c=c)
@@ -162,7 +162,7 @@ class GMVAE2(VAE2):
         self.z_pre = torch.nn.Parameter(
             torch.randn(1, 2 * self.k, self.z_dim) / np.sqrt(self.k * self.z_dim))
 
-    def kl_elem(self, z, qm, qv):
+    def kl_elementwise(self, z, qm, qv):
         # Compute the mixture of Gaussian prior
         prior_m, prior_v = ut.gaussian_parameters(self.z_pre, dim=1)
 
@@ -216,21 +216,44 @@ class VAE2CAR(VAE2):
         z_use_var = z_use_var.unsqueeze(1).expand(z_use_shape[0], iw, *z_use_shape[1:])
         # sample multiple c
         c = ut.sample_gaussian(z_use_mu, z_use_var)
+        c = c.view(z_use_shape[0]*iw, *z_use_shape[1:])
 
         # replicate x, y
         x_shape = list(x.shape)
         x = x.unsqueeze(1).expand(x_shape[0], iw, *x_shape[1:])
+        x = x.reshape(x_shape[0]*iw, *x_shape[1:])
         if y is not None:
             y_shape = list(y.shape)
             y = y.unsqueeze(1).expand(y_shape[0], iw, *y_shape[1:])
+            y = y.reshape(y_shape[0]*iw, *y_shape[1:])
 
         # encode
         qm, qv = self.enc.encode(x, y=y, c=c)
 
+        # replicate qm, qv
+        q_shape = list(qm.shape)
+        qm = qm.unsqueeze(1).expand(q_shape[0], iw, *q_shape[1:])
+        # print(qm.shape, q_shape)
+        qm = qm.reshape(q_shape[0]*iw, *q_shape[1:])
+        qv = qv.unsqueeze(1).expand(q_shape[0], iw, *q_shape[1:])
+        qv = qv.reshape(q_shape[0]*iw, *q_shape[1:])
+
+        # replicate x, y, c
+        x_shape = list(x.shape)
+        x = x.unsqueeze(1).expand(x_shape[0], iw, *x_shape[1:])
+        x = x.reshape(x_shape[0]*iw, *x_shape[1:])
+        if y is not None:
+            y_shape = list(y.shape)
+            y = y.unsqueeze(1).expand(y_shape[0], iw, *y_shape[1:])
+            y = y.reshape(y_shape[0]*iw, *y_shape[1:])
+        c_shape = list(c.shape)
+        c = c.unsqueeze(1).expand(c_shape[0], iw, *c_shape[1:])
+        c = c.reshape(c_shape[0]*iw, *c_shape[1:])
+
         # sample z(1)...z(iw) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)
 
-        kl_elem = self.kl_elem(z, qm, qv)
+        kl_elem = self.kl_elementwise(z, qm, qv)
 
         # decode
         mu, var = self.dec.decode(z, y=y, c=c)
@@ -238,7 +261,9 @@ class VAE2CAR(VAE2):
         nll, rec_mse, rec_var = ut.nlog_prob_normal(
             mu=mu, y=x, var=var, fixed_var=self.warmup, var_pen=self.var_pen)
         log_prob, rec_mse, rec_var = -nll, rec_mse.mean(), rec_var.mean()
-
+        elem_shape = list(kl_elem.shape)
+        kl_elem = kl_elem.view(z_use_shape[0], iw*iw)
+        log_prob = log_prob.view(z_use_shape[0], iw*iw)
         niwae = -ut.log_mean_exp(log_prob - kl_elem, dim=1).mean(-1)
 
         # reduce
@@ -260,3 +285,29 @@ class VAE2CAR(VAE2):
         else:
             c = torch.zeros((z.size()[0], self.use_model.z_dim))
         return self.dec.decode(torch.FloatTensor(z), y, c)
+
+
+class GMVAE2CAR(VAE2CAR):
+    def __init__(self, nn='v1', name='gmvae2car', z_dim=2, x_dim=24, c_dim=0,
+                 warmup=False, var_pen=1,
+                 use_model=None,
+                 k=100
+                 ):
+        super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen, use_model=use_model)
+        # Mixture of Gaussians prior
+        self.k = k
+        self.z_pre = torch.nn.Parameter(
+            torch.randn(1, 2 * self.k, self.z_dim) / np.sqrt(self.k * self.z_dim))
+
+    def kl_elementwise(self, z, qm, qv):
+        # Compute the mixture of Gaussian prior
+        prior_m, prior_v = ut.gaussian_parameters(self.z_pre, dim=1)
+
+        log_prob_net = ut.log_normal(z, qm, qv)
+        log_prob_prior = ut.log_normal_mixture(z, prior_m, prior_v)
+
+        # print("log_prob_net:", log_prob_net.mean(), "log_prob_prior:", log_prob_prior.mean())
+        kl_elem = log_prob_net - log_prob_prior
+        return kl_elem
+
+

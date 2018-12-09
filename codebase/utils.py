@@ -285,8 +285,8 @@ def evaluate_lower_bound2(model, eval_set, run_iwae=False, mode='val', verbose=T
         mode, nelbo, kl, rec, rec_mse, rec_var))
 
     if run_iwae:
-        for iw in [1, 10, 100]:
-            repeat = max(100 // iw, 1)  # Do at least 100 iterations
+        for iw in [1, 4, 10]:
+            repeat = max(100 // (iw*iw), 1)  # Do at least 100 iterations
             x_inputs['iw'] = iw
             niwae, kl, rec, rec_mse, rec_var = compute_metrics(repeat)
             print("{}-Negative IWAE-{}: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
