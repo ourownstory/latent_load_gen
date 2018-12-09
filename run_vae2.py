@@ -20,7 +20,8 @@ def run(args):
         ('vp{:02d}',  args.var_pen),
         ('lr{:.4f}',  args.lr),
         ('epo{:03d}', args.num_epochs),
-        ('run{:02d}', args.run)
+        ('run{:02d}', args.run),
+        ('y{:02d}', args.y)
     ]
     model_name = '_'.join([t.format(v) for (t, v) in layout])
     pprint(vars(args))
@@ -35,9 +36,12 @@ def run(args):
         ).to(device)
     else:
         model = VAE2(nn=args.model, z_dim=args.z, name=model_name, x_dim=24 if args.hourly==1 else 96,
+                     y_dim = args.y,
                      warmup=(args.warmup==1), var_pen=args.var_pen).to(device)
 
-    root_dir = "data/split" if args.hourly else "../data/CS236"
+    #root_dir = "data/split" if args.hourly else "../data/CS236"
+    
+    root_dir = 'data/split'
     # load train loader anyways - to get correct shift_scale values.
     train_loader = torch.utils.data.DataLoader(
         LoadDataset2(root_dir=root_dir, mode='train', shift_scale=None, filter_ev=False),
@@ -54,8 +58,8 @@ def run(args):
         )
         val_set = {
             "x": torch.FloatTensor(split_set.other).to(device),
-            # TODO: add metadata
-            "y": None,
+            #"y": None,
+            "y": torch.FloatTensor(split_set.meta).to(device),
             "c": None,
         }
         writer = ut.prepare_writer(model_name, overwrite_existing=True)
@@ -83,15 +87,20 @@ def run(args):
         )
         val_set = {
             "x": torch.FloatTensor(split_set.other).to(device),
-            # TODO: add metadata
-            "y": None,
+            "y": torch.FloatTensor(split_set.meta).to(device),
             "c": None,
         }
         ut.evaluate_lower_bound2(model, val_set, run_iwae=(args.iw>=1), mode=args.mode)
 
     if args.mode == 'plot':
+
+        print(shift_scale["other"])
+        print(shift_scale)
+
         make_image_load(model, shift_scale["other"])
         make_image_load_z(model, shift_scale["other"])
+
+        # TODO: implement make_image_load_meta
 
     if args.mode == 'load':
         print(model)
@@ -100,7 +109,7 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--mode', type=str, default='load', help="Flag for train, val, test, plot")
+    parser.add_argument('--mode', type=str, default='train', help="Flag for train, val, test, plot")
     parser.add_argument('--model', type=str, default='v1', help="model_architecture: v1, lstm")
     parser.add_argument('--z', type=int, default=10, help="Number of latent dimensions")
     parser.add_argument('--num_epochs', type=int, default=50, help="Number of training iterations")
@@ -113,9 +122,11 @@ def main():
     parser.add_argument('--lr_every', type=int, default=10, help="Number of lr anneling milestones")
     parser.add_argument('--k', type=int, default=1, help="Number mixture components in MoG prior")
     parser.add_argument('--iw', type=int, default=10, help="Number of IWAE samples for training")
+    parser.add_argument('--y', type=int, default=4, help="Metadata dimension for training")
+
     # parser.add_argument('--filter_ev', type=int, default=0,
     #                     help="remove car values where days-total is less than 0.1kWh")
-    parser.add_argument('--hourly', type=int, default=1, help="hourly data instead of 15min resolution data")
+    parser.add_argument('--hourly', type=int, default=0, help="hourly data instead of 15min resolution data")
     # parser.add_argument('--run_car',    type=int, default=0,    help="whether to run the second model or first")
     args = parser.parse_args()
 

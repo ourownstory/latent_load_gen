@@ -6,11 +6,15 @@ from codebase.utils import get_shift_scale
 
 
 def make_image_load(model, shift_scale):
+
     model.eval()
     num_sample = 2*4
+    meta = torch.tensor([[61.7, 96.9, 0.00360, 3.00]]).repeat(num_sample, 1)
+    print('meta shape', meta.shape)
+
     # sample_z = model.sample_z(batch=num_sample)
     # sampled_mu, sampled_var = model.sample_x_given(z=sample_z)
-    sampled_mu, sampled_var = model.sample_x(batch=num_sample)
+    sampled_mu, sampled_var = model.sample_x(batch=num_sample, y = meta)
 
     for i in range(num_sample):
         mu = sampled_mu[i].detach().numpy()
@@ -31,19 +35,30 @@ def make_image_load(model, shift_scale):
     # plt.suptitle("Random samples from Model ({})".format(model.name))
     # plt.show()
 
+# Write up section on data/data cleaning
+# Generate plots from before/after cleaning
+# Plots conditioned on metadata
+#   
 
-def make_image_load_z(model, shift_scale):
+# TODO: pick up with loading image metadata when sampling
+def make_image_load_z(model, shift_scale, meta=None):
+
     model.eval()
     z_dim = model.z_dim
     z_values = [-2, 2]
     num_sample = z_dim*len(z_values)
+
+    meta = torch.tensor([[61.7, 96.9, 0.00360, 3.00]]).repeat(num_sample, 1)
+
+    print(meta)
     z = torch.zeros(num_sample, z_dim)
     for z_i in range(z_dim):
         for v_i, value in enumerate(z_values):
             z[z_i*len(z_values) + v_i, z_i] = value
 
-    sampled_mu, sampled_var = model.sample_x_given(z=z)
+    sampled_mu, sampled_var = model.sample_x_given(z=z, y=meta)
 
+    #print('smu, svar', sampled_mu, sampled_var)
     for i in range(num_sample):
         mu = sampled_mu[i].detach().numpy()
         std = np.sqrt(sampled_var[i].detach().numpy())
@@ -68,6 +83,10 @@ def detach_mu_var(mu, var):
     mu = mu.detach().numpy()
     std = np.sqrt(var.detach().numpy())
     return mu, std
+
+
+
+
 
 
 def main():

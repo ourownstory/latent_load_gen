@@ -4,7 +4,7 @@ from codebase import utils as ut
 from torch import optim
 from codebase.models.cvae import CVAE
 from codebase.models.vae2 import VAE2
-
+import random
 
 def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones, iw,
           iter_max=np.inf, iter_save=np.inf,
@@ -138,6 +138,9 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=lr_gamma)
 
+
+    random.seed(1234) # Initialize the random seed
+
     # model.warmup = True
     # print("warmup", model.warmup)
     i = 0
@@ -145,7 +148,6 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
     with tqdm(total=num_batches_per_epoch*num_epochs) as pbar:
         while epoch < num_epochs:
             epoch += 1
-            # print("\nEpoch:", epoch)
             if epoch > 1:
                 # start learning variance
                 model.warmup = False
@@ -154,9 +156,10 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
                 i += 1  # i is num of gradient steps taken by end of loop iteration
                 optimizer.zero_grad()
                 # run model
+                #print(',,,', sample["other"].shape)
                 loss, summaries = model.loss(
                     x=sample["other"],
-                    meta=None,
+                    meta=sample["meta"],
                     c=None,
                     iw=iw
                 )
