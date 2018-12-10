@@ -11,7 +11,7 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 
 
 
-INCLUDE_LOESS = True
+INCLUDE_LOESS = False
 
 # (3) Make hourly data in same format
 # (4) Make weekly dataset
@@ -96,13 +96,13 @@ def longestNeg1Subsequence(li):
 def createFullCSV(includeMetadata = None):
 	# If loess == true, then add additional use_loess, test_loess, val_loess files with the loess-smoothed entries
 	# Store the years to access, and the months for which we have data in each of those years
-	years = ['2015']#, '2016', '2017', '2018']
+	years = ['2015', '2016', '2017', '2018']
 	allMonths = {'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05', 'june': '06', 'july': '07',
 				 'august': '08', 'september': '09', 'october': '10', 'november': '11', 'december': '12'
 				 }
 
 	monthsDi = {
-		'2015': allMonths,
+		'2015': {'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05'},
 		'2016': allMonths,
 		'2017': allMonths, #{'december': '12'},
 		'2018': {'january': '01', 'february': '02', 'march': '03', 'april': '04', 
@@ -162,9 +162,6 @@ def createFullCSV(includeMetadata = None):
 					return int(d) * day2sec + int(hr) * hr2sec + int(mn) * min2sec
 				
 				houseIDs = list(set([x[0] for x in lines]))
-
-				#for t in times:
-				#	print('-', t)
 
 				lookingFor = [
 					year + '-' + months[month] + '-' + (str(day) if day >= 10 else ('0' + str(day))) + ' ' + tm 
@@ -272,10 +269,10 @@ def createFullCSV(includeMetadata = None):
 						# Pull the last three columns and use .values to convert to npy. has shape (1,3)
 						metadataSubarr = metadata[metadata['days'].str.match(dayStr)].iloc[:,-4:].values 
 						arr = np.array(dayDatum) 
-						useSubarr = np.expand_dims(arr[:,0], 0) 
-						carSubarr = np.expand_dims(arr[:,1], 0)					
+						useSubarr = np.clip(np.expand_dims(arr[:,0], 0), 0, 30)
+						carSubarr = np.clip(np.expand_dims(arr[:,1], 0), 0, 30)		
 
-						if useSubarr.shape[1] != 96 or carSubarr.shape[1] != 96 or np.sum(useSubarr) > 30: 
+						if useSubarr.shape[1] != 96 or carSubarr.shape[1] != 96: 
 							# some entries are 1-length remainders, from wraparound to the next day
 							# Also ignore all with load greater than 30s
 							pass  

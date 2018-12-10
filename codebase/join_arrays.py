@@ -23,6 +23,7 @@ print(len(carFiles), len(useFiles), len(metaFiles))
 assert joinedUseArr.shape[0] == joinedCarArr.shape[0] == joinedMetaArr.shape[0]
 
 num = joinedUseArr.shape[0]
+print('num', num)
 
 # Train, val, test split
 train, val, test = 0.8, 0.1, 0.1 
@@ -43,6 +44,7 @@ testIndices = indices
 print(joinedUseArr.shape, joinedCarArr.shape, joinedMetaArr.shape)
 
 # Pull out the subsets and save them
+print(len(trainIndices), len(valIndices), len(testIndices))
 trainUse, trainCar, trainMeta = np.take(joinedUseArr, trainIndices, 0), np.take(joinedCarArr, trainIndices, 0), np.take(joinedMetaArr, trainIndices, 0)
 valUse, valCar, valMeta = np.take(joinedUseArr, valIndices, 0), np.take(joinedCarArr, valIndices, 0), np.take(joinedMetaArr, valIndices, 0)
 testUse, testCar, testMeta = np.take(joinedUseArr, testIndices, 0), np.take(joinedCarArr, testIndices, 0), np.take(joinedMetaArr, testIndices, 0)
