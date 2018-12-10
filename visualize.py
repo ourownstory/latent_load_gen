@@ -57,5 +57,51 @@ def visualize_data(use_direct):
                 break
 
 
+def visualize_data2(dataset):
+    print(dataset)
+    print(len(dataset))
+    num_samples = 4*4
+
+    for i, idx in enumerate(np.random.randint(0, high=len(dataset), size=num_samples)):
+        sample = dataset[idx]
+
+        # print(i, sample)
+        # print(i, sample['use'].shape, sample['car'].shape)
+
+        ax = plt.subplot(4, 4, i + 1)
+        plt.tight_layout()
+        ax.set_title('Sample #{}'.format(idx))
+        # ax.axis('off')
+        plt.plot(sample['other'], 'b')
+        plt.plot(sample['car'], 'r')
+
+    plt.show()
+
+
+def visualize_data2_smooth(dataset, dataset_smooth):
+    print(len(dataset))
+    num_samples = 4*4
+
+    for i, idx in enumerate(np.random.randint(0, high=len(dataset), size=num_samples)):
+        sample = dataset[idx]
+        sample_smooth = dataset_smooth[idx]
+
+        # print(i, sample)
+        # print(i, sample['use'].shape, sample['car'].shape)
+
+        ax = plt.subplot(4, 4, i + 1)
+        plt.tight_layout()
+        ax.set_title('Sample #{}'.format(idx))
+        # ax.axis('off')
+        plt.plot(sample['other'], 'b')
+        plt.plot(sample['car'], 'r')
+        plt.plot(sample_smooth['other'], 'k')
+        plt.plot(sample_smooth['car'], 'y')
+
+    plt.show()
+
+
+
 if __name__ == '__main__':
     visualize_data(use_direct=False)
+    # visualize_data2(root_dir="../data/CS236/data15_final")

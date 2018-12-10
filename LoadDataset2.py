@@ -3,12 +3,14 @@ import os
 import pandas as pd
 import numpy as np
 import torch
-
+from visualize import visualize_data2, visualize_data2_smooth
 
 class LoadDataset2(Dataset):
     """hourly aggregate load of a day dataset, with conditionals"""
 
-    def __init__(self, root_dir, mode, shift_scale=None, filter_ev=False, log_car=False, smooth=None):
+    def __init__(self, root_dir, mode,
+                 shift_scale=None, filter_ev=False, log_car=False,
+                 smooth=None, as_numpy=False):
         """
         Args:
             root_dir (string): Directory.
@@ -93,6 +95,7 @@ class LoadDataset2(Dataset):
             # add car scaling factors only after potentially filtering out.
             self.shift_scale["car"] = (np.mean(self.car), np.std(self.car))
             if self.smooth is not None:
+                self.shift_scale["loessOther"] = (np.mean(self.loessOther.reshape(-1)), np.std(self.loessOther.reshape(-1)))
                 self.shift_scale["loessCar"] = (np.mean(self.loessCar.reshape(-1)), np.std(self.loessCar.reshape(-1)))
 
         # always shift and scale
@@ -118,16 +121,17 @@ class LoadDataset2(Dataset):
         self.meta = np.concatenate((self.meta[:, :3], day), axis=1)
         self.dim_meta = self.meta.shape[1]
 
-        self.meta = torch.FloatTensor(self.meta)
-        self.car = torch.FloatTensor(self.car)
-        self.other = torch.FloatTensor(self.other)
-        if self.smooth is not None:
-            self.loessOther = torch.FloatTensor(self.loessOther)
-            self.loessCar = torch.FloatTensor(self.loessCar)
+        if not as_numpy:
+            self.meta = torch.FloatTensor(self.meta)
+            self.car = torch.FloatTensor(self.car)
+            self.other = torch.FloatTensor(self.other)
+            if self.smooth is not None:
+                self.loessOther = torch.FloatTensor(self.loessOther)
+                self.loessCar = torch.FloatTensor(self.loessCar)
 
     def __len__(self):
-        return self.other.size()[0]
-        # return self.other.shape[0]
+        # return self.other.size()[0]
+        return self.other.shape[0]
 
     def __getitem__(self, idx):
         if self.smooth is None:
@@ -167,7 +171,7 @@ class LoadDataset2(Dataset):
 def run_test(split):
     print("\n")
     print(split)
-    shift_scale = {"other": (0, 1), "car": (0, 1)}
+    shift_scale = {"other": (0, 1), "car": (0, 1), "loessOther": (0, 1), "loessCar": (0, 1)}
     # shift_scale = None  # to compute new
     # root_dir = "../data/CS236/data60/split"
     root_dir =  "../data/CS236/data15"
@@ -176,14 +180,16 @@ def run_test(split):
         mode=split,
         filter_ev=False,
         shift_scale=shift_scale,
-        # log_car=True
+        # log_car=True,
+        as_numpy=True,
     )
     split_set_ev = LoadDataset2(
         root_dir=root_dir,
         mode=split,
         filter_ev=True,
         shift_scale=shift_scale,
-        # log_car=True
+        # log_car=True,
+        as_numpy=True,
     )
     print("No EV", len(split_set))
     print("EV", len(split_set_ev))
@@ -209,6 +215,42 @@ def run_test(split):
         print("with filter", split_set_ev.shift_scale)
 
 
+def run_plot(split, smooth=False):
+    print("\n")
+    print(split)
+    shift_scale = {"other": (0, 1), "car": (0, 1), "loessOther": (0, 1), "loessCar": (0, 1)}
+    # shift_scale = None  # to compute new
+    # root_dir = "../data/CS236/data60/split"
+    root_dir =  "../data/CS236/data15_final"
+
+    split_set_ev = LoadDataset2(
+        root_dir=root_dir,
+        mode=split,
+        filter_ev=True,
+        shift_scale=shift_scale,
+        log_car=False,
+        smooth=0,
+        as_numpy=True,
+    )
+    # print("EV", len(split_set_ev))
+
+    if smooth:
+        split_set_ev_smooth = LoadDataset2(
+            root_dir=root_dir,
+            mode=split,
+            filter_ev=True,
+            shift_scale=shift_scale,
+            log_car=False,
+            smooth=1,
+            as_numpy=True,
+        )
+        visualize_data2_smooth(split_set_ev, split_set_ev_smooth)
+    else:
+        visualize_data2(split_set_ev)
+
+
 if __name__ == "__main__":
-    for spl in ['test', 'val', 'train']:
-        run_test(spl)
+    # for spl in ['test', 'val', 'train']:
+    for spl in ['test']:
+        # run_test(spl)
+        run_plot(spl, smooth=True)

@@ -51,13 +51,52 @@ def make_image_load(model, shift_scale, log_car):
     plt.suptitle("Random samples from Model ({})".format(model.name))
     plt.show()
 
+
+def make_image_load_day(model, shift_scale, log_car):
+    # print(log_car)
+    model.eval()
+    num_sample = 4
+    sample_z = model.sample_z(batch=num_sample)
+    meta_weather = np.random.normal(size=(num_sample, 3))
+    # sample_z = torch.zeros(num_sample, model.z_dim)
+    # meta_weather = torch.zeros((num_sample, 3))
+    for day in range(7):
+        print(day)
+        meta_day = np.zeros((num_sample, 7))
+        meta_day[:, day] = 1
+        meta = np.concatenate((meta_weather, meta_day), axis=1)
+        # print(meta)
+
+        sampled_mu, sampled_var = model.sample_x_given(z=sample_z, y=meta)
+
+        for i in range(num_sample):
+            mu = sampled_mu[i].detach().numpy()
+            std = np.sqrt(sampled_var[i].detach().numpy())
+
+            ax = plt.subplot(7, num_sample, day*num_sample + i + 1)
+            # ax.axis('off')
+            plt.tight_layout()
+            # ax.set_title('Sample #{}'.format(i+1))
+            plt.ylim((0, 5))
+            # ax.set_ylim(bottom=0)
+            plt.fill_between(np.arange(model.x_dim),
+                             reverse_log_norm(mu - 2*std, shift_scale, log_car),
+                             reverse_log_norm(mu + 2*std, shift_scale, log_car),
+                             alpha=0.2, facecolor='b', linewidth=0)
+            plt.fill_between(np.arange(model.x_dim),
+                             reverse_log_norm(mu - 1*std, shift_scale, log_car),
+                             reverse_log_norm(mu + 1*std, shift_scale, log_car),
+                             alpha=0.2, facecolor='b', linewidth=0)
+            plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'b', alpha=1)
+        # plt.savefig("checkpoints/random_samples_{}.png".format(model.name), dpi=300)
+        plt.suptitle("Random samples for days 0-6 ({})".format(model.name))
+    plt.show()
+
 # Write up section on data/data cleaning
 # Generate plots from before/after cleaning
 # Plots conditioned on metadata
 #   
 
-# TODO: pick up with loading image metadata when sampling
-# def make_image_load_z(model, shift_scale, meta=None):
 
 def make_image_load_z(model, shift_scale, log_car, meta=None):
     model.eval()
@@ -108,7 +147,7 @@ def make_image_load_z(model, shift_scale, log_car, meta=None):
 def make_image_load_z_use(model, shift_scale, log_car):
     model.eval()
     c_dim = model.use_model.z_dim
-    z_values = [-3, 3]
+    z_values = [-5, 5]
     num_sample = c_dim*len(z_values)
     z = torch.zeros(num_sample, model.z_dim)
 

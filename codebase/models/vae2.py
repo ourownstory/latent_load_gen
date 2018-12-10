@@ -146,7 +146,7 @@ class VAE2(nn.Module):
 
     # y is metadata - can specify
     def sample_x_given(self, z, y=None, c=None):
-        print(z.shape, y.shape, '---')
+        # print(z.shape, y.shape, '---')
         if y is not None:
             y = torch.FloatTensor(y)
         if c is not None:
