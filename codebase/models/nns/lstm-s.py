@@ -10,9 +10,9 @@ class Encoder(nn.Module):
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.c_dim = c_dim
-        self.HIDDEN_DIM = 128
-        self.NUM_LAYERS = 2
-        self.BIDIRECTIONAL = True
+        self.HIDDEN_DIM = 64
+        self.NUM_LAYERS = 1
+        self.BIDIRECTIONAL = False
 
         self.initializer = nn.Linear(x_dim + y_dim + c_dim,
                                      2 * self.NUM_LAYERS * (1 + self.BIDIRECTIONAL) * self.HIDDEN_DIM)
@@ -69,9 +69,9 @@ class Decoder(nn.Module):
         self.z_dim = z_dim
         self.x_dim = x_dim
         self.y_dim = y_dim
-        self.HIDDEN_DIM = 128
-        self.NUM_LAYERS = 2
-        self.BIDIRECTIONAL = True
+        self.HIDDEN_DIM = 64
+        self.NUM_LAYERS = 1
+        self.BIDIRECTIONAL = False
 
         self.initializer = nn.Linear(z_dim + y_dim + c_dim,
                                      2 * self.NUM_LAYERS * (1+self.BIDIRECTIONAL) * self.HIDDEN_DIM)

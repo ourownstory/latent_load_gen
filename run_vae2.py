@@ -116,7 +116,7 @@ def run(args, verbose=False):
 def main(call_args=None):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--mode', type=str, default='train', help="Flag for train, val, test, plot")
-    parser.add_argument('--model', type=str, default='v1', help="model_architecture: v1, lstm")
+    parser.add_argument('--model', type=str, default='lstm', help="model_architecture: ff, lstm")
     parser.add_argument('--z', type=int, default=5, help="Number of latent dimensions")
     parser.add_argument('--num_epochs', type=int, default=20, help="Number of training iterations")
     parser.add_argument('--run', type=int, default=0, help="Run ID. In case you want to run replicates")
@@ -126,7 +126,7 @@ def main(call_args=None):
     parser.add_argument('--var_pen', type=int, default=3, help="Penalty for variance - multiplied with var loss term")
     parser.add_argument('--lr_gamma', type=float, default=1, help="Anneling factor of lr")
     parser.add_argument('--lr_every', type=int, default=5, help="Number of lr anneling milestones")
-    parser.add_argument('--k', type=int, default=100, help="Number mixture components in MoG prior")
+    parser.add_argument('--k', type=int, default=1, help="Number mixture components in MoG prior")
     parser.add_argument('--iw', type=int, default=0, help="Number of IWAE samples for training")
     parser.add_argument('--log_ev', type=int, default=0, help="log-normalize car values")
     parser.add_argument('--hourly', type=int, default=0, help="hourly data instead of 15min resolution data")
@@ -144,5 +144,5 @@ def main(call_args=None):
 
 if __name__ == '__main__':
     print('main called externally')
-    model = main({"mode": 'plot'})
+    model = main({"mode": 'train'})
 
