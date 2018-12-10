@@ -16,8 +16,13 @@ def make_image_load(model, shift_scale, log_car):
     # print(log_car)
     model.eval()
     num_sample = 2*4
-    meta = torch.tensor([[61.7, 96.9, 0.00360, 3.00]]).repeat(num_sample, 1)
-    print('meta shape', meta.shape)
+    # meta = torch.tensor([[61.7, 96.9, 0.00360, 3.00]]).repeat(num_sample, 1)
+    meta_weather = np.random.normal(size=(num_sample, 3))
+    meta_day = np.zeros((num_sample, 7))
+    random_day = np.random.randint(0, high=7, size=(num_sample))
+    meta_day[np.arange(num_sample), random_day] = 1
+    meta = np.concatenate((meta_weather, meta_day), axis=1)
+    # print('meta shape', meta.shape)
 
     # sample_z = model.sample_z(batch=num_sample)
     # sampled_mu, sampled_var = model.sample_x_given(z=sample_z)
@@ -60,9 +65,14 @@ def make_image_load_z(model, shift_scale, log_car, meta=None):
     z_values = [-2, 2]
     num_sample = z_dim*len(z_values)
 
-    meta = torch.tensor([[61.7, 96.9, 0.00360, 3.00]]).repeat(num_sample, 1)
+    # meta = torch.tensor([[61.7, 96.9, 0.00360, 3.00]]).repeat(num_sample, 1)
 
-    print(meta)
+    meta_weather = np.zeros((num_sample, 3))
+    meta_day = np.zeros((num_sample, 7))
+    meta_day[np.arange(num_sample), 0] = 1
+    meta = np.concatenate((meta_weather, meta_day), axis=1)
+
+    # print(meta)
     z = torch.zeros(num_sample, z_dim)
     for z_i in range(z_dim):
         for v_i, value in enumerate(z_values):
@@ -79,7 +89,7 @@ def make_image_load_z(model, shift_scale, log_car, meta=None):
         # ax.axis('off')
         # plt.tight_layout()
         # ax.set_title('z = {}'.format(z[i, :].numpy()))
-        plt.ylim((0, 5))
+        plt.ylim((0, 3))
         plt.fill_between(np.arange(model.x_dim),
                          reverse_log_norm(mu - 2 * std, shift_scale, log_car),
                          reverse_log_norm(mu + 2 * std, shift_scale, log_car),
@@ -102,12 +112,17 @@ def make_image_load_z_use(model, shift_scale, log_car):
     num_sample = c_dim*len(z_values)
     z = torch.zeros(num_sample, model.z_dim)
 
+    meta_weather = np.zeros((num_sample, 3))
+    meta_day = np.zeros((num_sample, 7))
+    meta_day[np.arange(num_sample), 0] = 1
+    meta = np.concatenate((meta_weather, meta_day), axis=1)
+
     c = torch.zeros(num_sample, c_dim)
     for z_i in range(c_dim):
         for v_i, value in enumerate(z_values):
             c[z_i*len(z_values) + v_i, z_i] = value
 
-    sampled_mu, sampled_var = model.sample_x_given(z=z, c=c)
+    sampled_mu, sampled_var = model.sample_x_given(z=z, y=meta, c=c)
 
     for i in range(num_sample):
         mu = sampled_mu[i].detach().numpy()
@@ -129,7 +144,7 @@ def make_image_load_z_use(model, shift_scale, log_car):
         plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'r')
 
     # plt.savefig("checkpoints/latent_{}.png".format(model.name), dpi=300)
-    plt.suptitle("Latent space samples from model {}; blue: y=0, red: y=1".format(model.name))
+    plt.suptitle("Latent space samples from model {};".format(model.name))
     plt.show()
 
 

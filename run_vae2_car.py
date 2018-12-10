@@ -29,6 +29,14 @@ def run(args, verbose=False):
     print('Model name:', model_name)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15"
+    # load train loader anyways - to get correct shift_scale values.
+    train_loader = torch.utils.data.DataLoader(
+        LoadDataset2(root_dir=root_dir, mode='train', shift_scale=None, filter_ev=True, log_car=(args.log_ev==1)),
+        batch_size=args.batch, shuffle=True, smooth=args.smooth,
+    )
+    shift_scale = train_loader.dataset.shift_scale
+
     # load use-model
     use_model = run_vae2.main({"mode": 'load', })
 
@@ -38,23 +46,15 @@ def run(args, verbose=False):
             nn=args.model, name=model_name,
             z_dim=args.z, x_dim=24 if args.hourly==1 else 96, c_dim=use_model.z_dim,
             warmup=(args.warmup==1), var_pen=args.var_pen, use_model=use_model, k=args.k,
-            y_dim=4
+            y_dim=train_loader.dataset.dim_meta,
         ).to(device)
     else:
         model = VAE2CAR(
             nn=args.model, name=model_name,
             z_dim=args.z, x_dim=24 if args.hourly==1 else 96, c_dim=use_model.z_dim,
             warmup=(args.warmup==1), var_pen=args.var_pen, use_model=use_model,
-            y_dim=4
+            y_dim=train_loader.dataset.dim_meta,
         ).to(device)
-
-    root_dir = "data/split" if args.hourly else "../data/CS236"
-    # load train loader anyways - to get correct shift_scale values.
-    train_loader = torch.utils.data.DataLoader(
-        LoadDataset2(root_dir=root_dir, mode='train', shift_scale=None, filter_ev=True, log_car=(args.log_ev==1)),
-        batch_size=args.batch, shuffle=True
-    )
-    shift_scale = train_loader.dataset.shift_scale
 
     if args.mode == 'train':
         split_set = LoadDataset2(
@@ -63,6 +63,7 @@ def run(args, verbose=False):
             shift_scale=shift_scale,
             filter_ev=True,
             log_car=(args.log_ev==1),
+            smooth=None,
         )
         val_set = {
             "x": torch.FloatTensor(split_set.car).to(device),
@@ -96,8 +97,9 @@ def run(args, verbose=False):
             root_dir=root_dir,
             mode=args.mode,
             shift_scale=shift_scale,
-            filter_ev=False,
+            filter_ev=True,
             log_car=(args.log_ev==1),
+            smooth=None,
         )
         val_set = {
             "x": torch.FloatTensor(split_set.other).to(device),
@@ -118,10 +120,10 @@ def run(args, verbose=False):
 
 def main(call_args=None):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--mode', type=str, default='load', help="Flag for train, val, test, plot")
+    parser.add_argument('--mode', type=str, default='train', help="Flag for train, val, test, plot")
     parser.add_argument('--model', type=str, default='v1', help="model_architecture: v1, lstm")
     parser.add_argument('--z', type=int, default=5, help="Number of latent dimensions")
-    parser.add_argument('--num_epochs', type=int, default=20, help="Number of training iterations")
+    parser.add_argument('--num_epochs', type=int, default=2, help="Number of training iterations")
     parser.add_argument('--run', type=int, default=0, help="Run ID. In case you want to run replicates")
     parser.add_argument('--batch', type=int, default=64, help="Batch size")
     parser.add_argument('--lr', type=float, default=8e-3, help="Learning Rate(initial)")
@@ -129,11 +131,11 @@ def main(call_args=None):
     parser.add_argument('--var_pen', type=int, default=10, help="Penalty for variance - multiplied with var loss term")
     parser.add_argument('--lr_gamma', type=float, default=0.5, help="Anneling factor of lr")
     parser.add_argument('--lr_every', type=int, default=5, help="lr anneling every x epochs")
-    parser.add_argument('--k', type=int, default=10, help="Number mixture components in MoG prior")
-    parser.add_argument('--iw', type=int, default=4, help="Number of IWAE samples for training, will be SQARED!")
+    parser.add_argument('--k', type=int, default=1, help="Number mixture components in MoG prior")
+    parser.add_argument('--iw', type=int, default=0, help="Number of IWAE samples for training, will be SQARED!")
     parser.add_argument('--log_ev', type=int, default=0, help="log-normalize car values")
     parser.add_argument('--hourly', type=int, default=0, help="hourly data instead of 15min resolution data")
-    # parser.add_argument('--run_car',    type=int, default=0,    help="whether to run the second model or first")
+    parser.add_argument('--smooth', type=int, default=0, help="0: original data, 1: loess data, 2: random mix")
     args = parser.parse_args()
 
     if call_args is not None:
@@ -146,5 +148,6 @@ def main(call_args=None):
 
 
 if __name__ == '__main__':
-    model = main({"mode": 'train', "model": 'lstm'})
+    # model = main()
+    model = main({"mode": 'plot'})
 

@@ -9,9 +9,9 @@ class VAE2(nn.Module):
     def __init__(self, nn='v1', name='vae2', z_dim=10, x_dim=24, c_dim=0,
                  warmup=False, var_pen=1, y_dim=0):
         super().__init__()
-        print('ladedah')
-        print('x_dim', x_dim)
-        print('y_dim', y_dim)
+        # print('ladedah')
+        # print('x_dim', x_dim)
+        # print('y_dim', y_dim)
         self.name = name
         self.z_dim = z_dim
         self.x_dim = x_dim
@@ -19,9 +19,7 @@ class VAE2(nn.Module):
         self.c_dim = c_dim
         self.warmup = warmup
         self.var_pen = var_pen
-        # Small note: unfortunate name clash with torch.nn
-        # nn here refers to the specific architecture file found in
-        # codebase/models/nns/*.py
+
         nn = getattr(nns, nn)
         self.enc = nn.Encoder(self.z_dim, self.x_dim, self.y_dim, self.c_dim)
         self.dec = nn.Decoder(self.z_dim, self.x_dim, self.y_dim, self.c_dim)
@@ -163,8 +161,8 @@ class VAE2(nn.Module):
 class GMVAE2(VAE2):
     def __init__(self, nn='v1', name='gmvae2', z_dim=2, x_dim=24, c_dim=0,
                  warmup=False, var_pen=1,
-                 k=100):
-        super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen)
+                 k=100, y_dim=0):
+        super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen, y_dim=y_dim)
         # Mixture of Gaussians prior
         self.k = k
         self.z_pre = torch.nn.Parameter(
@@ -185,7 +183,7 @@ class GMVAE2(VAE2):
 class VAE2CAR(VAE2):
     def __init__(self, nn='v1', name='vae2car', z_dim=2, x_dim=24, c_dim=0,
                  warmup=False, var_pen=1,
-                 use_model=None, y_dim=4):
+                 use_model=None, y_dim=0):
         super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen, y_dim=y_dim)
         self.use_model = use_model
 
@@ -299,7 +297,7 @@ class GMVAE2CAR(VAE2CAR):
     def __init__(self, nn='v1', name='gmvae2car', z_dim=2, x_dim=24, c_dim=0,
                  warmup=False, var_pen=1,
                  use_model=None,
-                 k=100, y_dim=4):
+                 k=100, y_dim=0):
         super().__init__(nn, name, z_dim, x_dim, c_dim, warmup, var_pen=var_pen, use_model=use_model, y_dim=y_dim)
         # Mixture of Gaussians prior
         self.k = k
