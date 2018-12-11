@@ -3,6 +3,8 @@ from codebase import utils as ut
 from torch import nn
 
 
+
+
 class Encoder(nn.Module):
     def __init__(self, z_dim, x_dim, y_dim=0, c_dim=0):
         super().__init__()
@@ -22,7 +24,7 @@ class Encoder(nn.Module):
 
     def encode(self, x, y=None, c=None):
         xy = x if y is None else torch.cat((x, y), dim=-1)
-        xyc = xy if c is None else torch.cat((xy, c), dim=-1)
+        xyc = xy if c is None else torch.cat((x, c), dim=-1)
         h = self.net(xyc)
         m, v = ut.gaussian_parameters(h, dim=-1)
         return m, v

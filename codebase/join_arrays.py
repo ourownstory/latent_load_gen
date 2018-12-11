@@ -7,9 +7,9 @@ with open('carFiles.txt') as r:
 	carFiles = [c.strip() for c in r.readlines()] 
 	joinedCarArr = np.concatenate([np.load(npyFile) for npyFile in carFiles])
 
-with open('useFiles.txt') as r:
-	useFiles = [c.strip() for c in r.readlines()] 
-	joinedUseArr = np.concatenate([np.load(npyFile) for npyFile in useFiles])
+with open('otherFiles.txt') as r:
+	otherFiles = [c.strip() for c in r.readlines()] 
+	joinedOtherArr = np.concatenate([np.load(npyFile) for npyFile in otherFiles])
 
 with open('metaFiles.txt') as r:
 	metaFiles = [c.strip() for c in r.readlines()]
@@ -17,12 +17,12 @@ with open('metaFiles.txt') as r:
 
 
 
-print(len(carFiles), len(useFiles), len(metaFiles))
+print(len(carFiles), len(otherFiles), len(metaFiles))
 
 
-assert joinedUseArr.shape[0] == joinedCarArr.shape[0] == joinedMetaArr.shape[0]
+assert joinedOtherArr.shape[0] == joinedCarArr.shape[0] == joinedMetaArr.shape[0]
 
-num = joinedUseArr.shape[0]
+num = joinedOtherArr.shape[0]
 print('num', num)
 
 # Train, val, test split
@@ -41,23 +41,23 @@ indices = np.array([i for i in indices if i not in valIndices])
 
 testIndices = indices
 
-print(joinedUseArr.shape, joinedCarArr.shape, joinedMetaArr.shape)
+print(joinedOtherArr.shape, joinedCarArr.shape, joinedMetaArr.shape)
 
 # Pull out the subsets and save them
 print(len(trainIndices), len(valIndices), len(testIndices))
-trainUse, trainCar, trainMeta = np.take(joinedUseArr, trainIndices, 0), np.take(joinedCarArr, trainIndices, 0), np.take(joinedMetaArr, trainIndices, 0)
-valUse, valCar, valMeta = np.take(joinedUseArr, valIndices, 0), np.take(joinedCarArr, valIndices, 0), np.take(joinedMetaArr, valIndices, 0)
-testUse, testCar, testMeta = np.take(joinedUseArr, testIndices, 0), np.take(joinedCarArr, testIndices, 0), np.take(joinedMetaArr, testIndices, 0)
+trainOther, trainCar, trainMeta = np.take(joinedOtherArr, trainIndices, 0), np.take(joinedCarArr, trainIndices, 0), np.take(joinedMetaArr, trainIndices, 0)
+valOther, valCar, valMeta = np.take(joinedOtherArr, valIndices, 0), np.take(joinedCarArr, valIndices, 0), np.take(joinedMetaArr, valIndices, 0)
+testOther, testCar, testMeta = np.take(joinedOtherArr, testIndices, 0), np.take(joinedCarArr, testIndices, 0), np.take(joinedMetaArr, testIndices, 0)
 
-np.savetxt('data/split/train/use.csv', trainUse, delimiter = ',')
+np.savetxt('data/split/train/other.csv', trainOther, delimiter = ',')
 np.savetxt('data/split/train/car.csv', trainCar, delimiter = ',')
 np.savetxt('data/split/train/meta.csv', trainMeta, delimiter = ',')
 
-np.savetxt('data/split/val/use.csv', valUse, delimiter = ',')
+np.savetxt('data/split/val/other.csv', valOther, delimiter = ',')
 np.savetxt('data/split/val/car.csv', valCar, delimiter = ',')
 np.savetxt('data/split/val/meta.csv', valMeta, delimiter = ',')
 
-np.savetxt('data/split/test/use.csv', testUse, delimiter = ',')
+np.savetxt('data/split/test/other.csv', testOther, delimiter = ',')
 np.savetxt('data/split/test/car.csv', testCar, delimiter = ',')
 np.savetxt('data/split/test/meta.csv', testMeta, delimiter = ',')
 
@@ -65,29 +65,27 @@ np.savetxt('data/split/test/meta.csv', testMeta, delimiter = ',')
 
 # Replicate the same logic as above in the event that we are using loess smoothed data as well
 if create_full_csv.INCLUDE_LOESS:
-	with open('loessUseFiles.txt') as r:
-		loessUseFiles = [c.strip() for c in r.readlines()]
-
-		print('lenloess', len(loessUseFiles))
-		joinedLoessUseArr = np.concatenate([np.load(npyFile) for npyFile in loessUseFiles])
+	with open('loessOtherFiles.txt') as r:
+		loessOtherFiles = [c.strip() for c in r.readlines()]
+		print('lenloess', len(loessOtherFiles))
+		joinedLoessOtherArr = np.concatenate([np.load(npyFile) for npyFile in loessOtherFiles])
 	with open('loessCarFiles.txt') as r:
 		loessCarFiles = [c.strip() for c in r.readlines()]
-		print('lenloess', len(loessUseFiles))
-
+		print('lenloess', len(loessCarFiles))
 		joinedLoessCarArr = np.concatenate([np.load(npyFile) for npyFile in loessCarFiles])
 
-	assert joinedLoessUseArr.shape[0] == joinedLoessCarArr.shape[0]
+	assert joinedLoessOtherArr.shape[0] == joinedLoessCarArr.shape[0]
 
-	loessTrainUse, loessTrainCar = np.take(joinedLoessUseArr, trainIndices, 0), np.take(joinedLoessCarArr, trainIndices, 0)
-	loessValUse, loessValCar = np.take(joinedLoessUseArr, valIndices, 0), np.take(joinedLoessCarArr, valIndices, 0)
-	loessTestUse, loessTestCar = np.take(joinedLoessUseArr, testIndices, 0), np.take(joinedLoessCarArr, testIndices, 0)
+	loessTrainOther, loessTrainCar = np.take(joinedLoessOtherArr, trainIndices, 0), np.take(joinedLoessCarArr, trainIndices, 0)
+	loessValOther, loessValCar = np.take(joinedLoessOtherArr, valIndices, 0), np.take(joinedLoessCarArr, valIndices, 0)
+	loessTestOther, loessTestCar = np.take(joinedLoessOtherArr, testIndices, 0), np.take(joinedLoessCarArr, testIndices, 0)
 
-	np.savetxt('data/split/train/loess_use.csv', loessTrainUse, delimiter = ',')
+	np.savetxt('data/split/train/loess_other.csv', loessTrainOther, delimiter = ',')
 	np.savetxt('data/split/train/loess_car.csv', loessTrainCar, delimiter = ',')
 
-	np.savetxt('data/split/val/loess_use.csv', loessValUse, delimiter = ',')
+	np.savetxt('data/split/val/loess_other.csv', loessValOther, delimiter = ',')
 	np.savetxt('data/split/val/loess_car.csv', loessValCar, delimiter = ',')
 
-	np.savetxt('data/split/test/loess_use.csv', loessTestUse, delimiter = ',')
+	np.savetxt('data/split/test/loess_other.csv', loessTestOther, delimiter = ',')
 	np.savetxt('data/split/test/loess_car.csv', loessTestCar, delimiter = ',')
 

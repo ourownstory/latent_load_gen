@@ -34,11 +34,13 @@ class LoadDataset2(Dataset):
 
         '''
         # Oskar's version
-        self.use = pd.read_csv(os.path.join(self.root_dir, "use.csv")).values
+        #self.use = pd.read_csv(os.path.join(self.root_dir, "use.csv")).values
         self.car = pd.read_csv(os.path.join(self.root_dir, "car.csv")).values
+        self.other = pd.read_csv(os.path.join(self.root_dir, "other.csv")).values
         if self.smooth is not None:
-            self.loessUse = pd.read_csv(os.path.join(self.root_dir, "loess_use.csv")).values
+            #self.loessUse = pd.read_csv(os.path.join(self.root_dir, "loess_use.csv")).values
             self.loessCar = pd.read_csv(os.path.join(self.root_dir, "loess_car.csv")).values
+            self.loessOther = pd.read_csv(os.path.join(self.root_dir, "loess_other.csv")).values
 
         # store in array like car, other
         # rows correspond to car , use,
@@ -50,17 +52,17 @@ class LoadDataset2(Dataset):
         if self.smooth is not None:
             # Apply same consistency to the loess smoothed curves
             self.loessCar = np.maximum(self.loessCar, 0)
-            self.loessUse = np.maximum(self.loessUse, 0)
-            self.loessOther = self.loessUse - self.loessCar
+            #self.loessUse = np.maximum(self.loessUse, 0)
+            #self.loessOther = self.loessUse - self.loessCar
             self.loessOther = np.maximum(self.loessOther, 0)
 
         # ensure consistency
         self.car = np.maximum(self.car, 0)
         # add:
-        self.other = self.use - self.car
+        #self.other = self.use - self.car
         # ensure consistency
         self.other = np.maximum(self.other, 0)
-        self.use = None
+        #self.use = None
 
         if shift_scale is None:
             # we want to get the other shift scale for all entries, as that model is trained such.

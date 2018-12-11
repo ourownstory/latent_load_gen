@@ -27,15 +27,15 @@ def run(args, verbose=False):
     print('Model name:', model_name)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15"
+    # root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15"
 
     # Will
-    # root_dir = '/Users/willlauer/Desktop/latent_load_gen/data/split'
+    root_dir = '/Users/willlauer/Desktop/latent_load_gen/data/split'
 
     # load train loader anyways - to get correct shift_scale values.
     train_loader = torch.utils.data.DataLoader(
-        LoadDataset2(root_dir=root_dir, mode='train', shift_scale=None, filter_ev=False),
-        batch_size=args.batch, shuffle=True, smooth=args.smooth,
+        LoadDataset2(root_dir=root_dir, mode='train', shift_scale=None, filter_ev=False, smooth = args.smooth),
+        batch_size=args.batch, shuffle=True
     )
     shift_scale = train_loader.dataset.shift_scale
 
