@@ -126,20 +126,17 @@ class VAE2(nn.Module):
         return niwae, kl, rec, rec_mse, rec_var
 
     def loss(self, x, meta=None, c=None, iw=0):
-        nelbo, kl, rec, rec_mse, rec_var = self.nelbo_niwae(
+        loss, kl, rec, rec_mse, rec_var = self.nelbo_niwae(
             x=x,
             y=meta,
             c=c,
             iw=iw,
         )
-        loss = nelbo
         summaries = dict((
-            ('train/loss', nelbo),
-            ('gen/elbo', -nelbo),
-            ('gen/kl_z', kl),
-            ('gen/rec', rec),
-            ('gen/rec_mse', rec_mse),
-            ('gen/rec_var', rec_var),
+            ('loss', loss),
+            ('kl_z', kl),
+            ('rec_mse', rec_mse),
+            ('rec_var', rec_var),
         ))
 
         return loss, summaries

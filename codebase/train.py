@@ -5,6 +5,9 @@ from torch import optim
 from codebase.models.cvae import CVAE
 from codebase.models.vae2 import VAE2
 import random
+from collections import OrderedDict
+import copy
+
 
 def train(model, train_loader, device, tqdm, writer, lr, lr_gamma, lr_milestones, iw,
           iter_max=np.inf, iter_save=np.inf,
@@ -122,7 +125,7 @@ def train_c(model, train_loader,  train_loader_ev, device, tqdm, writer, lr, lr_
                 return
 
 
-def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_milestone_every, iw,
+def train2(model, train_loader, val_set, tqdm, lr, lr_gamma, lr_milestone_every, iw,
            num_epochs, reinitialize=False, is_car_model=False):
     assert isinstance(model, VAE2)
     # Optimization
@@ -138,54 +141,67 @@ def train2(model, train_loader, val_set, tqdm, writer, lr, lr_gamma, lr_mileston
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=lr_gamma)
 
-
     random.seed(1234) # Initialize the random seed
-
-
-
     # model.warmup = True
     # print("warmup", model.warmup)
     i = 0
     epoch = 0
+    print_every = 10
+
     with tqdm(total=num_batches_per_epoch*num_epochs) as pbar:
         while epoch < num_epochs:
-            epoch += 1
-            if epoch > 1:
+            if epoch >= 1:
                 # start learning variance
                 model.warmup = False
 
+            summaries = OrderedDict({
+                'epoch': 0,
+                'loss': 0,
+                'kl_z': 0,
+                'rec_mse': 0,
+                'rec_var': 0,
+                'loss_type': iw,
+                'lr': optimizer.param_groups[0]['lr'],
+                'varpen': model.var_pen,
+            })
             for batch_idx, sample in enumerate(train_loader):
                 i += 1  # i is num of gradient steps taken by end of loop iteration
                 optimizer.zero_grad()
-                # run model
-                #print(',,,', sample["other"].shape)
-                #print(',,,', sample["meta"].shape)
-                loss, summaries = model.loss(
 
+                # run model
+                loss, info = model.loss(
                     x=sample["other"] if not is_car_model else sample["car"],
                     meta=sample["meta"],
                     c=None if not is_car_model else sample["other"],
                     iw=iw
                 )
-                loss.backward()
-                optimizer.step()
-                scheduler.step()
 
                 pbar.set_postfix(loss='{:.2e}'.format(loss))
                 pbar.update(1)
                 # Log summaries
-                if i % 50 == 0:
-                    ut.log_summaries(writer, summaries, i)
-                    # print(optimizer.param_groups[0]['lr'])
-                    # print("warmup", model.warmup)
-                    print("Epoch:", epoch, ", ".join(["{}: {:.2f}".format(key, v.item()) for key, v in summaries.items()]))
+                for key, value in info.items():
+                    summaries[key] += value.item() / (1.0 * print_every)
+
+                if i % print_every == 0:
+                    summaries["epoch"] = epoch + (batch_idx*1.0) / num_batches_per_epoch
+                    ut.log_summaries(summaries, 'train', model_name=model.name, verbose=True)
+                    for key in ['loss', 'kl_z', 'rec_mse', 'rec_var']:
+                        summaries[key] = 0.0
+                loss.backward()
+                optimizer.step()
+                scheduler.step()
 
             # validate at each epoch end
-            ut.evaluate_lower_bound2(model, val_set, run_iwae=(iw >= 1), mode='val', verbose=False)
+            for key in ['loss', 'kl_z', 'rec_mse', 'rec_var']:
+                summaries[key] = 0.0
+            summaries["epoch"] = epoch + 1
+            ut.evaluate_lower_bound2(
+                model, val_set, run_iwae=(iw >= 1), mode='val',
+                verbose=False, summaries=copy.deepcopy(summaries)
+            )
 
-            if epoch % 10 == 0:   # save interim
-                # ut.save_model_by_name(model, epoch)
-                pass
-
+            epoch += 1
+            if epoch % 10 == 0:   # save interim model
+                ut.save_model_by_name(model, epoch)
         # save in the end
         ut.save_model_by_name(model, epoch)
