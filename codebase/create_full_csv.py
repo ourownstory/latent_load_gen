@@ -11,7 +11,7 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 
 
 
-INCLUDE_LOESS = False
+INCLUDE_LOESS = True
 
 # (3) Make hourly data in same format
 # (4) Make weekly dataset
@@ -102,7 +102,7 @@ def createFullCSV(includeMetadata = None):
 				 }
 
 	monthsDi = {
-		'2015': {'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05'},
+		'2015': allMonths, #{'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05'},
 		'2016': allMonths,
 		'2017': allMonths, #{'december': '12'},
 		'2018': {'january': '01', 'february': '02', 'march': '03', 'april': '04', 
