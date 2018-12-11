@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from HourlyLoadDataset import HourlyLoad2017Dataset
 from ConditionalLoadDataset import ConditionalLoadDataset
 from LoadDataset2 import LoadDataset2
+import pandas as pd
 
 
 def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
@@ -250,7 +251,7 @@ def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
                 iw, niwae, kl, rec, rec_mse, rec_var))
 
 
-def evaluate_lower_bound2(model, eval_set, run_iwae=False, mode='val', verbose=True, repeats=10):
+def evaluate_lower_bound2(model, eval_set, run_iwae=False, mode='val', verbose=True, repeats=10, summaries=None):
     check_model = isinstance(model, VAE2)
     assert check_model, "This function is only intended for VAE2 and GMVAE2"
 
@@ -281,6 +282,10 @@ def evaluate_lower_bound2(model, eval_set, run_iwae=False, mode='val', verbose=T
 
     # Run multiple times to get low-var estimate
     nelbo, kl, rec, rec_mse, rec_var = compute_metrics(repeats)
+    if summaries is not None:
+        summaries["loss_type"] = 0
+        summaries["loss"], summaries["kl_z"], summaries["rec_mse"], summaries["rec_var"] = nelbo, kl, rec_mse, rec_var
+        log_summaries(summaries, mode, model.name, verbose=False)
     print("{}-NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
         mode, nelbo, kl, rec, rec_mse, rec_var))
 
@@ -289,6 +294,11 @@ def evaluate_lower_bound2(model, eval_set, run_iwae=False, mode='val', verbose=T
             repeat = max(repeats // (iw*iw), 1)  # Do at least 10 iterations
             x_inputs['iw'] = iw
             niwae, kl, rec, rec_mse, rec_var = compute_metrics(repeat)
+            if summaries is not None:
+                summaries["loss_type"] = iw
+                summaries["loss"], summaries["kl_z"], summaries["rec_mse"], summaries["rec_var"] \
+                    = niwae, kl, rec_mse, rec_var
+                log_summaries(summaries, mode, model.name, verbose=False)
             print("{}-Negative IWAE-{}: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
                 mode, iw, niwae, kl, rec, rec_mse, rec_var))
 
@@ -304,10 +314,10 @@ def save_model_by_name(model, global_step):
 
 
 def prepare_writer(model_name, overwrite_existing=False):
-    log_dir = os.path.join('logs', model_name)
+    # log_dir = os.path.join('logs', model_name)
     save_dir = os.path.join('checkpoints', model_name)
     if overwrite_existing:
-        delete_existing(log_dir)
+        # delete_existing(log_dir)
         delete_existing(save_dir)
     # Sadly, I've been told *not* to use tensorflow :<
     # writer = tf.summary.FileWriter(log_dir)
@@ -315,13 +325,24 @@ def prepare_writer(model_name, overwrite_existing=False):
     return writer
 
 
-def log_summaries(writer, summaries, global_step):
-    pass # Sad :<
-    # for tag in summaries:
-    #     val = summaries[tag]
-    #     tf_summary = tf.Summary.Value(tag=tag, simple_value=val)
-    #     writer.add_summary(tf.Summary(value=[tf_summary]), global_step)
-    # writer.flush()
+def log_summaries(summaries, mode, model_name, verbose=False):
+    if verbose:
+        print(", ".join(["{}: {:.4f}".format(key, v) for key, v in summaries.items()]))
+    save_dir = os.path.join('checkpoints', model_name)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    file_path = os.path.join(save_dir, 'summaries_{}.csv'.format(mode))
+    if os.path.isfile(file_path):
+        with open(file_path, 'a') as file:
+            file.write(",".join(["{:.4f}".format(value) for key, value in summaries.items()]) + "\n")
+    else:
+        if verbose: print("creating new summaries CSV")
+        with open(file_path, 'w') as file:
+            file.write(",".join([key for key, value in summaries.items()])
+                       + "\n"
+                       + ",".join(["{:.4f}".format(value) for key, value in summaries.items()])
+                       + "\n"
+                       )
 
 
 def delete_existing(path):
@@ -419,3 +440,15 @@ def get_shift_scale(hourly, log_normal):
             shift_scale = (1.2456642410923986, 1.6478924381994144)
     return shift_scale
 
+
+def save_latent(model, val_set, mode):
+    z_mu, z_var = model.enc.encode(**val_set)
+    df = pd.DataFrame()
+    for i in range(model.z_dim):
+        df["mu-{:02d}".format(i+1)] = z_mu[:, i]
+    for i in range(model.z_dim):
+        df["var-{:02d}".format(i+1)] = z_var[:, i]
+
+    save_dir = os.path.join('checkpoints', model.name)
+    file_path = os.path.join(save_dir, 'latent_{}.csv'.format(mode))
+    df.to_csv(file_path, index=False)
