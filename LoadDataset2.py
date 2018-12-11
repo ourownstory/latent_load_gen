@@ -37,18 +37,18 @@ class LoadDataset2(Dataset):
         '''
         # Oskar's version
         #self.use = pd.read_csv(os.path.join(self.root_dir, "use.csv")).values
-        self.car = pd.read_csv(os.path.join(self.root_dir, "car.csv")).values
-        self.other = pd.read_csv(os.path.join(self.root_dir, "other.csv")).values
+        self.car = pd.read_csv(os.path.join(self.root_dir, "car.csv"), header=None).values
+        self.other = pd.read_csv(os.path.join(self.root_dir, "other.csv"), header=None).values
         if self.smooth is not None:
             #self.loessUse = pd.read_csv(os.path.join(self.root_dir, "loess_use.csv")).values
-            self.loessCar = pd.read_csv(os.path.join(self.root_dir, "loess_car.csv")).values
-            self.loessOther = pd.read_csv(os.path.join(self.root_dir, "loess_other.csv")).values
+            self.loessCar = pd.read_csv(os.path.join(self.root_dir, "loess_car.csv"), header=None).values
+            self.loessOther = pd.read_csv(os.path.join(self.root_dir, "loess_other.csv"), header=None).values
 
         # store in array like car, other
         # rows correspond to car , use,
         # metadata in vector format
         # one-hot for day of week, 2 for temp, 1 for rain
-        self.meta = pd.read_csv(os.path.join(self.root_dir, "meta.csv")).astype('float32').values
+        self.meta = pd.read_csv(os.path.join(self.root_dir, "meta.csv"), header=None).astype('float32').values
         # print('meta shape', self.meta.shape)
 
         if self.smooth is not None:
@@ -223,7 +223,7 @@ def run_plot(split, smooth=False):
     shift_scale = {"other": (0, 1), "car": (0, 1), "loessOther": (0, 1), "loessCar": (0, 1)}
     # shift_scale = None  # to compute new
     # root_dir = "../data/CS236/data60/split"
-    root_dir =  "../data/CS236/data15_final"
+    root_dir =  "/Users/willlauer/Desktop/latent_load_gen/data/split"
 
     split_set_ev = LoadDataset2(
         root_dir=root_dir,

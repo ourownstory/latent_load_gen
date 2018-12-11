@@ -2,22 +2,25 @@ import numpy as np
 import create_full_csv 
 
 
-
 with open('carFiles.txt') as r:
-	carFiles = [c.strip() for c in r.readlines()] 
+	carFiles = [c.strip() for c in r.readlines()]
 	joinedCarArr = np.concatenate([np.load(npyFile) for npyFile in carFiles])
 
 with open('otherFiles.txt') as r:
 	otherFiles = [c.strip() for c in r.readlines()] 
 	joinedOtherArr = np.concatenate([np.load(npyFile) for npyFile in otherFiles])
 
+houseIdsLi = []
 with open('metaFiles.txt') as r:
-	metaFiles = [c.strip() for c in r.readlines()]
-	joinedMetaArr = np.concatenate([np.load(npyFile) for npyFile in metaFiles])
+    metaFiles = [c.strip() for c in r.readlines()]
+    houseIds = [x.split('_')[3].split('.')[0] for x in metaFiles]
 
-
-
-print(len(carFiles), len(otherFiles), len(metaFiles))
+    lengths = [np.load(npyFile).shape[0] for npyFile in metaFiles]
+    for i, houseId in enumerate(houseIds):
+        for _ in range(lengths[i]):
+            houseIdsLi.append(houseId)
+    joinedMetaArr = np.concatenate([np.load(npyFile) for npyFile in metaFiles])
+print(len(carFiles), len(otherFiles), len(metaFiles), len(houseIdsLi))
 
 
 assert joinedOtherArr.shape[0] == joinedCarArr.shape[0] == joinedMetaArr.shape[0]
@@ -48,6 +51,24 @@ print(len(trainIndices), len(valIndices), len(testIndices))
 trainOther, trainCar, trainMeta = np.take(joinedOtherArr, trainIndices, 0), np.take(joinedCarArr, trainIndices, 0), np.take(joinedMetaArr, trainIndices, 0)
 valOther, valCar, valMeta = np.take(joinedOtherArr, valIndices, 0), np.take(joinedCarArr, valIndices, 0), np.take(joinedMetaArr, valIndices, 0)
 testOther, testCar, testMeta = np.take(joinedOtherArr, testIndices, 0), np.take(joinedCarArr, testIndices, 0), np.take(joinedMetaArr, testIndices, 0)
+
+trainHouseIds = [houseIdsLi[i] for i in trainIndices]
+valHouseIds = [houseIdsLi[i] for i in valIndices]
+testHouseIds = [houseIdsLi[i] for i in testIndices]
+
+
+with open('houseIdsTrain.txt', 'w+') as w:
+    s = '\n'.join(trainHouseIds)
+    w.write(s)
+
+with open('houseIdsVal.txt', 'w+') as w:
+    s = '\n'.join(valHouseIds)
+    w.write(s)
+
+with open('houseIdsTest.txt', 'w+') as w:
+    s = '\n'.join(testHouseIds)
+    w.write(s)
+
 
 np.savetxt('data/split/train/other.csv', trainOther, delimiter = ',')
 np.savetxt('data/split/train/car.csv', trainCar, delimiter = ',')

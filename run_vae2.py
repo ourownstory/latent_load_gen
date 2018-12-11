@@ -28,7 +28,7 @@ def run(args, verbose=False):
     print('Model name:', model_name)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15"
+    #root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15"
     #root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
 
     # Will
