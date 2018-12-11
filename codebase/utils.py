@@ -12,6 +12,9 @@ from LoadDataset2 import LoadDataset2
 import pandas as pd
 
 
+log_2pi = np.log(2*np.pi)
+
+
 def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
     # print(mu.shape, y.shape, var.shape)
     diff = y - mu
@@ -21,14 +24,14 @@ def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
         var_cost = torch.zeros(*y.shape)
     else:
         # return actual log-likelihood
-        mse = torch.div(mse, var) * (1.0/var_pen)
-        var_cost = torch.log(var) #* var_pen
-        # these two last terms would make it a correct log(p), but are not required for MLE
-        # cost += log_2pi
-        # cost *= 0.5
+        mse = torch.div(mse, (var + 1e-5)) * (1.0/var_pen)
+        var_cost = torch.log(var + 1e-5) #* var_pen
     mse = mse.sum(-1)
     var_cost = var_cost.sum(-1)
     cost = mse + var_cost
+    # these two last terms would make it a correct log(p), but are not required for MLE
+    cost += log_2pi * y.size()[-1]
+    cost *= 0.5
     return cost, mse, var_cost
 
 
@@ -336,13 +339,10 @@ def log_summaries(summaries, mode, model_name, verbose=False):
         with open(file_path, 'a') as file:
             file.write(",".join(["{:.4f}".format(value) for key, value in summaries.items()]) + "\n")
     else:
-        if verbose: print("creating new summaries CSV")
+        # if verbose: print("creating new summaries CSV")
         with open(file_path, 'w') as file:
-            file.write(",".join([key for key, value in summaries.items()])
-                       + "\n"
-                       + ",".join(["{:.4f}".format(value) for key, value in summaries.items()])
-                       + "\n"
-                       )
+            file.write(",".join([key for key, value in summaries.items()]) + "\n"
+                       + ",".join(["{:.4f}".format(value) for key, value in summaries.items()]) + "\n")
 
 
 def delete_existing(path):
@@ -441,14 +441,26 @@ def get_shift_scale(hourly, log_normal):
     return shift_scale
 
 
-def save_latent(model, val_set, mode):
+def save_latent(model, val_set, mode, verbose=False):
     z_mu, z_var = model.enc.encode(**val_set)
-    df = pd.DataFrame()
-    for i in range(model.z_dim):
-        df["mu-{:02d}".format(i+1)] = z_mu[:, i]
-    for i in range(model.z_dim):
-        df["var-{:02d}".format(i+1)] = z_var[:, i]
+    df_mu = pd.DataFrame(
+        data=z_mu.detach().numpy(),
+        columns=["mu-{:02d}".format(i + 1)for i in range(model.z_dim)],
+    )
+    df_var = pd.DataFrame(
+        data=z_var.detach().numpy(),
+        columns=["var-{:02d}".format(i + 1)for i in range(model.z_dim)],
+    )
+    # for i in range(model.z_dim):
+    #     print(i)
+    #     df["mu-{:02d}".format(i+1)] = z_mu[:, i]
+    # for i in range(model.z_dim):
+    #     df["var-{:02d}".format(i+1)] = z_var[:, i]
 
     save_dir = os.path.join('checkpoints', model.name)
-    file_path = os.path.join(save_dir, 'latent_{}.csv'.format(mode))
-    df.to_csv(file_path, index=False)
+    file_path = os.path.join(save_dir, '{}_latent_mu.csv'.format(mode))
+    if verbose: print("saving latent: ", file_path)
+    df_mu.to_csv(file_path, index=False)
+    file_path = os.path.join(save_dir, '{}_latent_var.csv'.format(mode))
+    if verbose: print("saving latent: ", file_path)
+    df_var.to_csv(file_path, index=False)

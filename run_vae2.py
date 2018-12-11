@@ -109,10 +109,8 @@ def run(args, verbose=False):
         })
 
         ut.save_latent(model, val_set, mode=args.mode)
-        
-        ut.evaluate_lower_bound2(model, val_set, run_iwae=True, mode=args.mode, repeats=100, summaries=summaries)
 
-        ut.save_latent(model, val_set, mode=args.mode)
+        ut.evaluate_lower_bound2(model, val_set, run_iwae=True, mode=args.mode, repeats=100, summaries=summaries)
 
     if args.mode == 'plot':
 
@@ -131,15 +129,15 @@ def run(args, verbose=False):
 def main(call_args=None):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--mode', type=str, default='train', help="Flag for train, val, test, plot")
-    parser.add_argument('--model', type=str, default='ff-s-dec', help="model_architecture: ff, lstm")
-    parser.add_argument('--z', type=int, default=10, help="Number of latent dimensions")
-    parser.add_argument('--num_epochs', type=int, default=10, help="Number of training iterations")
+    parser.add_argument('--model', type=str, default='lstm-s', help="model_architecture: ff, lstm")
+    parser.add_argument('--z', type=int, default=5, help="Number of latent dimensions")
+    parser.add_argument('--num_epochs', type=int, default=1, help="Number of training iterations")
     parser.add_argument('--run', type=int, default=0, help="Run ID. In case you want to run replicates")
     parser.add_argument('--batch', type=int, default=128, help="Batch size")
-    parser.add_argument('--lr', type=float, default=9e-3, help="Learning Rate(initial)")
-    parser.add_argument('--warmup', type=int, default=1, help="Fix variance during first epoch of training")
-    parser.add_argument('--var_pen', type=int, default=3, help="Penalty for variance - multiplied with var loss term")
-    parser.add_argument('--lr_gamma', type=float, default=0.335, help="Anneling factor of lr")
+    parser.add_argument('--lr', type=float, default=1e-2, help="Learning Rate(initial)")
+    parser.add_argument('--warmup', type=int, default=0, help="Fix variance during first epoch of training")
+    parser.add_argument('--var_pen', type=int, default=1, help="Penalty for variance - multiplied with var loss term")
+    parser.add_argument('--lr_gamma', type=float, default=1, help="Anneling factor of lr")
     parser.add_argument('--lr_every', type=int, default=5, help="Number of lr anneling milestones")
     parser.add_argument('--k', type=int, default=1, help="Number mixture components in MoG prior")
     parser.add_argument('--iw', type=int, default=0, help="Number of IWAE samples for training")
@@ -159,5 +157,8 @@ def main(call_args=None):
 
 if __name__ == '__main__':
     print('main called externally')
+    # model = main({"mode": 'train'})
     model = main({"mode": 'plot'})
+    # model = main({"mode": 'val'})
+    # model = main({"mode": 'test'})
 

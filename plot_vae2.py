@@ -47,9 +47,9 @@ def make_image_load(model, shift_scale, log_car):
                          reverse_log_norm(mu + 1*std, shift_scale, log_car),
                          alpha=0.2, facecolor='b', linewidth=0)
         plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'b')
-    # plt.savefig("checkpoints/random_samples_{}.png".format(model.name), dpi=300)
-    plt.suptitle("Random samples from Model ({})".format(model.name))
-    plt.show()
+    plt.savefig("checkpoints/random_samples_{}.png".format(model.name), dpi=300)
+    # plt.suptitle("Random samples from Model ({})".format(model.name))
+    # plt.show()
 
 
 def make_image_load_day(model, shift_scale, log_car):
@@ -88,8 +88,8 @@ def make_image_load_day(model, shift_scale, log_car):
                              reverse_log_norm(mu + 1*std, shift_scale, log_car),
                              alpha=0.2, facecolor='b', linewidth=0)
             plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'b', alpha=1)
-        # plt.savefig("checkpoints/random_samples_{}.png".format(model.name), dpi=300)
-        plt.suptitle("Random samples for days 0-6 ({})".format(model.name))
+    plt.savefig("checkpoints/samples_day_{}.png".format(model.name), dpi=300)
+    # plt.suptitle("Random samples for days 0-6 ({})".format(model.name))
     plt.show()
 
 # Write up section on data/data cleaning
@@ -101,7 +101,7 @@ def make_image_load_day(model, shift_scale, log_car):
 def make_image_load_z(model, shift_scale, log_car, meta=None):
     model.eval()
     z_dim = model.z_dim
-    z_values = [-2, 2]
+    z_values = [-3, -1, 1, 3]
     num_sample = z_dim*len(z_values)
 
     # meta = torch.tensor([[61.7, 96.9, 0.00360, 3.00]]).repeat(num_sample, 1)
@@ -128,7 +128,7 @@ def make_image_load_z(model, shift_scale, log_car, meta=None):
         # ax.axis('off')
         # plt.tight_layout()
         # ax.set_title('z = {}'.format(z[i, :].numpy()))
-        plt.ylim((0, 3))
+        plt.ylim((0, 5))
         plt.fill_between(np.arange(model.x_dim),
                          reverse_log_norm(mu - 2 * std, shift_scale, log_car),
                          reverse_log_norm(mu + 2 * std, shift_scale, log_car),
@@ -139,9 +139,9 @@ def make_image_load_z(model, shift_scale, log_car, meta=None):
                          alpha=0.2, facecolor='r', linewidth=0)
         plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'r')
 
-    # plt.savefig("checkpoints/latent_{}.png".format(model.name), dpi=300)
-    plt.suptitle("Latent space samples from model {}; blue: y=0, red: y=1".format(model.name))
-    plt.show()
+    plt.savefig("checkpoints/latent_{}.png".format(model.name), dpi=300)
+    # plt.suptitle("Latent space samples from model {}; blue: y=0, red: y=1".format(model.name))
+    # plt.show()
 
 
 def make_image_load_z_use(model, shift_scale, log_car):
@@ -182,9 +182,9 @@ def make_image_load_z_use(model, shift_scale, log_car):
                          alpha=0.2, facecolor='r', linewidth=0)
         plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'r')
 
-    # plt.savefig("checkpoints/latent_{}.png".format(model.name), dpi=300)
-    plt.suptitle("Latent space samples from model {};".format(model.name))
-    plt.show()
+    plt.savefig("checkpoints/conditional_use_{}.png".format(model.name), dpi=300)
+    # plt.suptitle("conditional use samples from model {};".format(model.name))
+    # plt.show()
 
 
 def detach_mu_var(mu, var):
