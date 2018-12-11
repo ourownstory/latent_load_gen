@@ -87,20 +87,28 @@ class VAE2(nn.Module):
         qm = qm.unsqueeze(1).expand(q_shape[0], iw, *q_shape[1:])
         qv = qv.unsqueeze(1).expand(q_shape[0], iw, *q_shape[1:])
 
-        # replicate x, y, c
-        x_shape = list(x.shape)
-        x = x.unsqueeze(1).expand(x_shape[0], iw, *x_shape[1:])
-        if y is not None:
-            y_shape = list(y.shape)
-            y = y.unsqueeze(1).expand(y_shape[0], iw, *y_shape[1:])
-        if c is not None:
-            c_shape = list(c.shape)
-            c = c.unsqueeze(1).expand(c_shape[0], iw, *c_shape[1:])
-
         # sample z(1)...z(iw) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)
 
         kl_elem = self.kl_elementwise(z, qm, qv)
+
+        # reshape for LSTM
+        # replicate z, x, y, c
+        z_shape = list(z.shape)
+        z = z.reshape(z_shape[0] * iw, *z_shape[2:])
+
+        x_shape = list(x.shape)
+        x = x.unsqueeze(1).expand(x_shape[0], iw, *x_shape[1:])
+        x = x.reshape(x_shape[0]*iw, *x_shape[1:])
+
+        if y is not None:
+            y_shape = list(y.shape)
+            y = y.unsqueeze(1).expand(y_shape[0], iw, *y_shape[1:])
+            y = y.reshape(y_shape[0] * iw, *y_shape[1:])
+        if c is not None:
+            c_shape = list(c.shape)
+            c = c.unsqueeze(1).expand(c_shape[0], iw, *c_shape[1:])
+            c = c.reshape(c_shape[0] * iw, *c_shape[1:])
 
         # decode
         mu, var = self.dec.decode(z, y=y, c=c)
@@ -109,6 +117,7 @@ class VAE2(nn.Module):
             mu=mu, y=x, var=var, fixed_var=self.warmup, var_pen=self.var_pen)
         log_prob, rec_mse, rec_var = -nll, rec_mse.mean(), rec_var.mean()
 
+        log_prob = log_prob.view(x_shape[0], iw)
         niwae = -ut.log_mean_exp(log_prob - kl_elem, dim=1).mean(-1)
 
         # reduce
@@ -267,7 +276,6 @@ class VAE2CAR(VAE2):
         nll, rec_mse, rec_var = ut.nlog_prob_normal(
             mu=mu, y=x, var=var, fixed_var=self.warmup, var_pen=self.var_pen)
         log_prob, rec_mse, rec_var = -nll, rec_mse.mean(), rec_var.mean()
-        elem_shape = list(kl_elem.shape)
         kl_elem = kl_elem.view(z_use_shape[0], iw*iw)
         log_prob = log_prob.view(z_use_shape[0], iw*iw)
         niwae = -ut.log_mean_exp(log_prob - kl_elem, dim=1).mean(-1)
