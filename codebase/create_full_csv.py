@@ -25,16 +25,6 @@ def getDayOfWeek(date):
 	return datetime(year, month, day).weekday()
 
 
-def displayDayData(f):
-	'''
-	Takes in npy filename and prints it out
-	'''
-	arr = np.load(f)
-	plt.plot(arr)
-
-	plt.show()
-
-
 def aggregateWeatherMetadata():
 
 	wf1 = '/Users/willlauer/Desktop/latent_load_gen/data/weather_2015_2017.csv'
@@ -43,7 +33,7 @@ def aggregateWeatherMetadata():
 	weather2 = pd.read_csv(wf2) 
 	weather1 = pd.read_csv(wf1, names = weather2.columns.values)
 
-	# Filter out duplicate 2017 values
+	# Filter out duplicate 2017 values. 
 	weather1 = weather1[~weather1['localhour'].str.contains('/17 ')] # space is crucial
 
 	weatherFull = weather2.append(weather1)
@@ -96,13 +86,13 @@ def longestNeg1Subsequence(li):
 def createFullCSV(includeMetadata = None):
 	# If loess == true, then add additional use_loess, test_loess, val_loess files with the loess-smoothed entries
 	# Store the years to access, and the months for which we have data in each of those years
-	years = ['2015', '2016', '2017', '2018']
+	years = ['2015']#, '2016', '2017', '2018']
 	allMonths = {'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05', 'june': '06', 'july': '07',
 				 'august': '08', 'september': '09', 'october': '10', 'november': '11', 'december': '12'
 				 }
 
 	monthsDi = {
-		'2015': allMonths, #{'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05'},
+		'2015': {'april': '04', 'may': '05'},
 		'2016': allMonths,
 		'2017': allMonths, #{'december': '12'},
 		'2018': {'january': '01', 'february': '02', 'march': '03', 'april': '04', 
@@ -127,7 +117,7 @@ def createFullCSV(includeMetadata = None):
 			minStr = str(minute) if minute >= 10 else '0' + str(minute)
 			times.append(hrStr + ':' + minStr + ':' + '00')
 
-	savedUseFiles, savedCarFiles, savedMetaFiles, savedLoessUseFiles, savedLoessCarFiles = [], [], [], [], []
+	savedOtherFiles, savedLoessOtherFiles, savedCarFiles, savedMetaFiles, savedLoessCarFiles = [], [], [], [], []
 
 	#########
 	# Stats #
@@ -155,7 +145,6 @@ def createFullCSV(includeMetadata = None):
 				min2sec = 60
 
 				def toSeconds(dateStr):
-					# print(dateStr)
 					a, b = dateStr.split(' ') 
 					y, m, d = a.split('-')
 					hr, mn, se = b.split(':')
@@ -180,7 +169,7 @@ def createFullCSV(includeMetadata = None):
 
 					houseDict = {s: (-1.0, -1.0) for s in lookingFor}
 					
-					useArr = np.empty((0, 96))
+					otherArr = np.empty((0, 96))
 					carArr = np.empty((0, 96))
 					metadataArr = np.empty((0, 4)) # Store max temp, min temp, sum precip, day of week 
 
@@ -205,14 +194,11 @@ def createFullCSV(includeMetadata = None):
 					# Array of lists of length 96
 					dayData1 = [houseData[i:i+96] for i in range(0, len(houseData), 96)]
 					zeros = [longestNeg1Subsequence(day) for day in dayData1] 
-					#for x in zeros:
-					#	print(x)
 
 					# [
 					#	[entries for day] = [(time, (x, y))]
 					# ]
 					# Filter out days
-					#print('day data before', len(dayData1))
 					dayData = [dayData1[i] for i in range(len(dayData1)) 
 									if zeros[i][0] <= consecZerosThreshold and zeros[i][1] <= totZeroThreshold]
 
@@ -234,8 +220,10 @@ def createFullCSV(includeMetadata = None):
 						
 						assert(len(have[-1]) + len(haveNot[-1]) == 96)
 
-					#print(len(dayData)) # 31, as expecteds
-					#print(have[0])
+					# Other option is to fill in the entire day
+					if len(have) == 0:
+						continue
+
 					for i in range(len(dayData)):
 						fI = [(-1.0, -1.0)] * 96 # full i
 						for j in have[i]:
@@ -243,7 +231,7 @@ def createFullCSV(includeMetadata = None):
 						full.append(fI)
 					
 					# Fill in the missing entries
-
+	
 					for j, day in enumerate(haveNot):
 						for i in day:
 							next = [x for x in have[j] if x > i]
@@ -269,89 +257,97 @@ def createFullCSV(includeMetadata = None):
 						# Pull the last three columns and use .values to convert to npy. has shape (1,3)
 						metadataSubarr = metadata[metadata['days'].str.match(dayStr)].iloc[:,-4:].values 
 						arr = np.array(dayDatum) 
-						useSubarr = np.clip(np.expand_dims(arr[:,0], 0), 0, 30)
-						carSubarr = np.clip(np.expand_dims(arr[:,1], 0), 0, 30)		
 
-						if useSubarr.shape[1] != 96 or carSubarr.shape[1] != 96: 
+						# other = use - car
+						#print(arr)
+						otherSubarr = np.clip(np.expand_dims(arr[:,0] - arr[:,1], 0), 0, 30)
+						#print('-', otherSubarr)
+						carSubarr = np.clip(np.expand_dims(arr[:,1], 0), 0, 30)
+
+						if otherSubarr.shape[1] != 96 or otherSubarr.shape[1] != 96: 
 							# some entries are 1-length remainders, from wraparound to the next day
-							# Also ignore all with load greater than 30s
 							pass  
 
 						else:
-							useArr = np.concatenate((useArr, useSubarr))
+							otherArr = np.concatenate((otherArr, otherSubarr)) 
 							carArr = np.concatenate((carArr, carSubarr))
 							metadataArr = np.concatenate((metadataArr, metadataSubarr))
 
-					#print(useArr.shape)
-
-					np.save('use_' + year + '_' + month + '_' + houseID + '.npy', useArr)
-					np.save('car_' + year + '_' + month + '_' + houseID + '.npy', carArr)
-					np.save('meta_' + year + '_' + month + '_' + houseID + '.npy', metadataArr)
-					savedUseFiles.append('use_' + year + '_' + month + '_' + houseID + '.npy')
-					savedCarFiles.append('car_' + year + '_' + month + '_' + houseID + '.npy')
-					savedMetaFiles.append('meta_' + year + '_' + month + '_' + houseID + '.npy')
 
 
 					# If we are applying loess smoothing, then do one more pass through all of the data and apply loess 
 					# smoothing to each of the entries. Save these as separate files
 					# Use default parameters at the moment
+				
+					
 					if INCLUDE_LOESS:
 
-						loessUse = np.empty((0, 96))
-						loessCar = np.empty((0, 96))
+						flattenedOther = otherArr.flatten()
+						flattenedCar = carArr.flatten()
 
-						for i in range(useArr.shape[0]):
-							#print('loess shape', lowess(useArr[i], list(range(96))).shape)
-							#print('loess_shape', lowess(useArr[i], list(range(96)), return_sorted=False).shape)
-							loessUse = np.concatenate((loessUse, np.expand_dims(lowess(useArr[i], list(range(96)), return_sorted=False), 0)))
-							loessCar = np.concatenate((loessCar, np.expand_dims(lowess(carArr[i], list(range(96)), return_sorted=False), 0)))
+						frac = 5 / flattenedOther.shape[0]
+						loessOther = lowess(flattenedOther, list(range(flattenedOther.shape[0])), return_sorted=False, frac=frac)
+						loessOtherDaySplit = np.array([loessOther[i:i+96] for i in range(0, flattenedOther.shape[0], 96)])
+						loessCarDaySplit = np.array([loessOther[i:i+96] for i in range(0, flattenedCar.shape[0], 96)])
 
-						np.save('loess_use_' + year + '_' + month + '_' + houseID + '.npy', loessUse)
-						np.save('loess_car_' + year + '_' + month + '_' + houseID + '.npy', loessCar)
-						savedLoessUseFiles.append('loess_use_' + year + '_' + month + '_' + houseID + '.npy')
+						savedLoessOtherFiles.append('loess_other_' + year + '_' + month + '_' + houseID + '.npy')
 						savedLoessCarFiles.append('loess_car_' + year + '_' + month + '_' + houseID + '.npy')
-						#print('loess_car_', loessCar.shape)
-						#print('loess_use_', loessUse.shape)
+						
+						np.save('loess_other_' + year + '_' + month + '_' + houseID + '.npy', loessOtherDaySplit)
+						np.save('loess_car_' + year + '_' + month + '_' + houseID + '.npy', loessCarDaySplit)
 
-	useFiles = '\n'.join(savedUseFiles)
+					np.save('other_' + year + '_' + month + '_' + houseID + '.npy', otherArr)
+					np.save('car_' + year + '_' + month + '_' + houseID + '.npy', carArr)
+					np.save('meta_' + year + '_' + month + '_' + houseID + '.npy', metadataArr)
+					savedOtherFiles.append('other_' + year + '_' + month + '_' + houseID + '.npy')
+					savedCarFiles.append('car_' + year + '_' + month + '_' + houseID + '.npy')
+					savedMetaFiles.append('meta_' + year + '_' + month + '_' + houseID + '.npy')
+
+	otherFiles = '\n'.join(savedOtherFiles)
 	carFiles = '\n'.join(savedCarFiles)
 	metaFiles = '\n'.join(savedMetaFiles)
 
-	if INCLUDE_LOESS:
-		loessUseFiles = '\n'.join(savedLoessUseFiles)
-		loessCarFiles = '\n'.join(savedLoessCarFiles)
-		with open('loessUseFiles.txt', 'w+') as w:
-			w.write(loessUseFiles)
-		with open('loessCarFiles.txt', 'w+') as w:
-			w.write(loessCarFiles)
-
-	with open('useFiles.txt', 'w+') as w:
-		w.write(useFiles)
+	with open('otherFiles.txt', 'w+') as w:
+		w.write(otherFiles)
 	with open('carFiles.txt', 'w+') as w:
 		w.write(carFiles)
 	with open('metaFiles.txt', 'w+') as w:
 		w.write(metaFiles)
 
+	if INCLUDE_LOESS:
+		loessOtherFiles = '\n'.join(savedLoessOtherFiles)
+		loessCarFiles = '\n'.join(savedLoessCarFiles)
+		with open('loessOtherFiles.txt', 'w+') as w:
+			w.write(loessOtherFiles)
+		with open('loessCarFiles.txt', 'w+') as w:
+			w.write(loessCarFiles)
+	
+
 
 def visualizeData():
 
 	root = '/Users/willlauer/Desktop/latent_load_gen/data/split'
-	trainUse, trainCar, trainMeta = pd.read_csv(root + '/train/use.csv'), pd.read_csv(root + '/train/car.csv'), pd.read_csv(root + '/train/meta.csv')
-	valUse, valCar, valMeta = pd.read_csv(root + '/val/use.csv'), pd.read_csv(root + '/val/car.csv'), pd.read_csv(root + '/val/meta.csv')
-	testUse, testCar, testMeta = pd.read_csv(root + '/test/use.csv'), pd.read_csv(root + '/test/car.csv'), pd.read_csv(root + '/test/meta.csv')
+	trainOther, trainCar, trainMeta = pd.read_csv(root + '/train/other.csv'), pd.read_csv(root + '/train/car.csv'), pd.read_csv(root + '/train/meta.csv')
+	valOther, valCar, valMeta = pd.read_csv(root + '/val/other.csv'), pd.read_csv(root + '/val/car.csv'), pd.read_csv(root + '/val/meta.csv')
+	testOther, testCar, testMeta = pd.read_csv(root + '/test/other.csv'), pd.read_csv(root + '/test/car.csv'), pd.read_csv(root + '/test/meta.csv')
 
 	xAxis = list(range(96))
 	numCurves = 10
 
-	plt.figure(1, figsize=(9, 3))
+	plt.figure(1, figsize=(9, 4))
 	
 	plt.subplot(131)
 	for i in range(numCurves):
-		plt.plot(xAxis, trainUse.loc[i].values)
-	
+		plt.plot(xAxis, trainOther.loc[i].values)
+	'''
 	plt.subplot(132)
 	for i in range(numCurves):
+		plt.plot(xAxis, trainL)
+	'''
+	plt.subplot(133)
+	for i in range(numCurves):
 		plt.plot(xAxis, trainCar.loc[i].values)
+
 
 
 	plt.show()
