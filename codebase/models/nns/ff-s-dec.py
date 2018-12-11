@@ -3,8 +3,6 @@ from codebase import utils as ut
 from torch import nn
 
 
-
-
 class Encoder(nn.Module):
     def __init__(self, z_dim, x_dim, y_dim=0, c_dim=0):
         super().__init__()
@@ -15,16 +13,16 @@ class Encoder(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(x_dim + y_dim + c_dim, 128),
             nn.ELU(),
-            nn.Linear(128, 64),
+            nn.Linear(128, 128),
             nn.ELU(),
-            nn.Linear(64, 32),
+            nn.Linear(128, 128),
             nn.ELU(),
-            nn.Linear(32, 2 * z_dim),
+            nn.Linear(128, 2 * z_dim),
         )
 
     def encode(self, x, y=None, c=None):
         xy = x if y is None else torch.cat((x, y), dim=-1)
-        xyc = xy if c is None else torch.cat((x, c), dim=-1)
+        xyc = xy if c is None else torch.cat((xy, c), dim=-1)
         h = self.net(xyc)
         m, v = ut.gaussian_parameters(h, dim=-1)
         return m, v
@@ -37,11 +35,7 @@ class Decoder(nn.Module):
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.net = nn.Sequential(
-            nn.Linear(z_dim + y_dim + c_dim, 32),
-            nn.ELU(),
-            nn.Linear(32, 64),
-            nn.ELU(),
-            nn.Linear(64, 128),
+            nn.Linear(z_dim + y_dim + c_dim, 128),
             nn.ELU(),
             nn.Linear(128, 2*x_dim),
         )

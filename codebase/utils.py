@@ -250,7 +250,7 @@ def evaluate_lower_bound_conditional(model, eval_set, run_iwae=False):
                 iw, niwae, kl, rec, rec_mse, rec_var))
 
 
-def evaluate_lower_bound2(model, eval_set, run_iwae=False, mode='val', verbose=True):
+def evaluate_lower_bound2(model, eval_set, run_iwae=False, mode='val', verbose=True, repeats=10):
     check_model = isinstance(model, VAE2)
     assert check_model, "This function is only intended for VAE2 and GMVAE2"
 
@@ -280,13 +280,13 @@ def evaluate_lower_bound2(model, eval_set, run_iwae=False, mode='val', verbose=T
         return metrics
 
     # Run multiple times to get low-var estimate
-    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(100)
+    nelbo, kl, rec, rec_mse, rec_var = compute_metrics(repeats)
     print("{}-NELBO: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
         mode, nelbo, kl, rec, rec_mse, rec_var))
 
     if run_iwae:
         for iw in [1, 4, 10]:
-            repeat = max(100 // (iw*iw), 1)  # Do at least 100 iterations
+            repeat = max(repeats // (iw*iw), 1)  # Do at least 10 iterations
             x_inputs['iw'] = iw
             niwae, kl, rec, rec_mse, rec_var = compute_metrics(repeat)
             print("{}-Negative IWAE-{}: {}. KL: {}. Rec: {}. Rec_mse: {}. Rec_var: {}".format(
