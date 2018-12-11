@@ -86,13 +86,13 @@ def longestNeg1Subsequence(li):
 def createFullCSV(includeMetadata = None):
 	# If loess == true, then add additional use_loess, test_loess, val_loess files with the loess-smoothed entries
 	# Store the years to access, and the months for which we have data in each of those years
-	years = ['2015']#, '2016', '2017', '2018']
+	years = ['2015', '2016', '2017', '2018']
 	allMonths = {'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05', 'june': '06', 'july': '07',
 				 'august': '08', 'september': '09', 'october': '10', 'november': '11', 'december': '12'
 				 }
 
 	monthsDi = {
-		'2015': {'april': '04', 'may': '05'},
+		'2015': allMonths,#{'january': '01', 'february': '02', 'march': '03'},
 		'2016': allMonths,
 		'2017': allMonths, #{'december': '12'},
 		'2018': {'january': '01', 'february': '02', 'march': '03', 'april': '04', 
@@ -285,10 +285,11 @@ def createFullCSV(includeMetadata = None):
 						flattenedOther = otherArr.flatten()
 						flattenedCar = carArr.flatten()
 
-						frac = 5 / flattenedOther.shape[0]
+						frac = 6 / flattenedOther.shape[0]
 						loessOther = lowess(flattenedOther, list(range(flattenedOther.shape[0])), return_sorted=False, frac=frac)
+						loessCar = lowess(flattenedCar, list(range(flattenedCar.shape[0])), return_sorted=False, frac=frac)
 						loessOtherDaySplit = np.array([loessOther[i:i+96] for i in range(0, flattenedOther.shape[0], 96)])
-						loessCarDaySplit = np.array([loessOther[i:i+96] for i in range(0, flattenedCar.shape[0], 96)])
+						loessCarDaySplit = np.array([loessCar[i:i+96] for i in range(0, flattenedCar.shape[0], 96)])
 
 						savedLoessOtherFiles.append('loess_other_' + year + '_' + month + '_' + houseID + '.npy')
 						savedLoessCarFiles.append('loess_car_' + year + '_' + month + '_' + houseID + '.npy')
