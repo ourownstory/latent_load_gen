@@ -196,16 +196,17 @@ def train2(model, train_loader, val_set, tqdm, lr, lr_gamma, lr_milestone_every,
                 scheduler.step()
 
             # validate at each epoch end
+            val_summaries = copy.deepcopy(summaries)
             for key in ['loss', 'kl_z', 'rec_mse', 'rec_var']:
-                summaries[key] = 0.0
-            summaries["epoch"] = epoch + 1
+                val_summaries[key] = 0.0
+            val_summaries["epoch"] = epoch + 1
             ut.evaluate_lower_bound2(
                 model,
                 val_set,
                 run_iwae=(iw >= 1),
                 mode='val',
                 verbose=False,
-                summaries=copy.deepcopy(summaries)
+                summaries=val_summaries
             )
 
             epoch += 1
