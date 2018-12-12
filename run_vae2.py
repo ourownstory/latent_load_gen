@@ -138,7 +138,7 @@ def main(call_args=None):
     parser.add_argument('--batch', type=int, default=128, help="Batch size")
     parser.add_argument('--lr', type=float, default=9e-3, help="Learning Rate(initial)")
     parser.add_argument('--warmup', type=int, default=0, help="Fix variance during first epoch of training")
-    parser.add_argument('--var_pen', type=int, default=10, help="Penalty for variance - multiplied with var loss term")
+    parser.add_argument('--var_pen', type=int, default=1, help="Penalty for variance - multiplied with var loss term")
     parser.add_argument('--lr_gamma', type=float, default=0.335, help="Anneling factor of lr")
     parser.add_argument('--lr_every', type=int, default=10, help="Number of lr anneling milestones")
     parser.add_argument('--k', type=int, default=1, help="Number mixture components in MoG prior")

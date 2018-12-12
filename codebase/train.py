@@ -146,7 +146,7 @@ def train2(model, train_loader, val_set, tqdm, lr, lr_gamma, lr_milestone_every,
     # print("warmup", model.warmup)
     i = 0
     epoch = 0
-    print_every = 10
+    print_every = 100
     summaries = OrderedDict({
         'epoch': 0,
         'loss': 0,
