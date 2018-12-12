@@ -52,7 +52,15 @@ def run(args, verbose=False):
     shift_scale = train_loader.dataset.shift_scale
 
     # load use-model
-    use_model = run_vae2.main({"mode": 'load', })
+    use_model = run_vae2.main({"mode": 'load',
+                               "model": 'ff-s-dec',  # hardcode
+                               "lr": 0.01,  # hardcode
+                               "k": 1,  # hardcode
+                               "iw": 0,  # hardcode
+                               "num_epochs": 20,  # hardcode
+                               "var_pen": 1,  # hardcode
+                               "run": 1,  # hardcode
+                               })
 
     if args.k > 1:
         print('36')
@@ -161,7 +169,7 @@ def main(call_args=None):
     parser.add_argument('--num_epochs', type=int, default=20, help="Number of training iterations")
     parser.add_argument('--run', type=int, default=0, help="Run ID. In case you want to run replicates")
     parser.add_argument('--batch', type=int, default=128, help="Batch size")
-    parser.add_argument('--lr', type=float, default=1e-2, help="Learning Rate(initial)")
+    parser.add_argument('--lr', type=float, default=3e-3, help="Learning Rate(initial)")
     parser.add_argument('--warmup', type=int, default=0, help="Fix variance during first epoch of training")
     parser.add_argument('--var_pen', type=int, default=1, help="Penalty for variance - multiplied with var loss term")
     parser.add_argument('--lr_gamma', type=float, default=0.335, help="Anneling factor of lr")
