@@ -42,7 +42,7 @@ def run(args, verbose=False):
             root_dir=root_dir,
             mode='train',
             shift_scale=None,
-            filter_ev=True,
+            filter_ev=False,
             log_car=(args.log_ev==1),
             smooth=args.smooth
         ),
@@ -75,7 +75,7 @@ def run(args, verbose=False):
             root_dir=root_dir,
             mode='val',
             shift_scale=shift_scale,
-            filter_ev=True,
+            filter_ev=False,
             log_car=(args.log_ev==1),
             smooth=None,
         )
@@ -84,7 +84,7 @@ def run(args, verbose=False):
             "y": torch.FloatTensor(split_set.meta).to(device),
             "c": torch.FloatTensor(split_set.other).to(device),
         }
-        writer = ut.prepare_writer(model_name, overwrite_existing=True)
+        _ = ut.prepare_writer(model_name, overwrite_existing=True)
 
         # make sure not to train the first VAE
         if not (args.finetune == 1):
@@ -111,7 +111,7 @@ def run(args, verbose=False):
             root_dir=root_dir,
             mode=args.mode,
             shift_scale=shift_scale,
-            filter_ev=True,
+            filter_ev=False,
             log_car=(args.log_ev==1),
             smooth=None,
         )
@@ -158,14 +158,14 @@ def main(call_args=None):
     parser.add_argument('--mode', type=str, default='train', help="Flag for train, val, test, plot")
     parser.add_argument('--model', type=str, default='ff', help="model_architecture: ff, lstm")
     parser.add_argument('--z', type=int, default=5, help="Number of latent dimensions")
-    parser.add_argument('--num_epochs', type=int, default=40, help="Number of training iterations")
+    parser.add_argument('--num_epochs', type=int, default=10, help="Number of training iterations")
     parser.add_argument('--run', type=int, default=0, help="Run ID. In case you want to run replicates")
     parser.add_argument('--batch', type=int, default=128, help="Batch size")
     parser.add_argument('--lr', type=float, default=9e-3, help="Learning Rate(initial)")
     parser.add_argument('--warmup', type=int, default=0, help="Fix variance during first epoch of training")
     parser.add_argument('--var_pen', type=int, default=10, help="Penalty for variance - multiplied with var loss term")
     parser.add_argument('--lr_gamma', type=float, default=0.335, help="Anneling factor of lr")
-    parser.add_argument('--lr_every', type=int, default=10, help="lr anneling every x epochs")
+    parser.add_argument('--lr_every', type=int, default=5, help="lr anneling every x epochs")
     parser.add_argument('--k', type=int, default=1, help="Number mixture components in MoG prior")
     parser.add_argument('--iw', type=int, default=0, help="Number of IWAE samples for training, will be SQARED!")
     parser.add_argument('--log_ev', type=int, default=0, help="log-normalize car values")
