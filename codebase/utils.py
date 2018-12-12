@@ -25,7 +25,7 @@ def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
     else:
         # return actual log-likelihood
         mse = torch.div(mse, (var + 1e-5))  #* (1.0/var_pen)
-        var_cost = torch.log(var*var_pen + 0.1)  #* var_pen
+        var_cost = torch.log(var*var_pen + 1)  #* var_pen
         # var_cost = torch.mul(var, var)
     mse = mse.sum(-1)
     var_cost = var_cost.sum(-1)
