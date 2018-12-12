@@ -12,10 +12,10 @@ from collections import OrderedDict
 
 def run(args, verbose=False):
     layout = [
-        ('{:s}',  "gmvae2" if args.k > 1 else "vae2"),
+        ('{:s}',  "vae2"),
         ('{:s}',  args.model),
-        ('x{:02d}',  24 if args.hourly==1 else 96),
-        ('z{:02d}',  args.z),
+        # ('x{:02d}',  24 if args.hourly==1 else 96),
+        # ('z{:02d}',  args.z),
         ('k{:02d}',  args.k),
         ('iw{:02d}',  args.iw),
         ('vp{:02d}',  args.var_pen),
@@ -29,9 +29,9 @@ def run(args, verbose=False):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # cloud
-    root_dir = "../data/data15_final"
+    # root_dir = "../data/data15_final"
     # Oskar
-    # root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
+    root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
     # Will
     #root_dir = '/Users/willlauer/Desktop/latent_load_gen/data/split'
 
@@ -112,7 +112,7 @@ def run(args, verbose=False):
 
         ut.save_latent(model, val_set, mode=args.mode, is_car_model=False)
 
-        ut.evaluate_lower_bound2(model, val_set, run_iwae=True, mode=args.mode, repeats=100, summaries=summaries)
+        ut.evaluate_lower_bound2(model, val_set, run_iwae=True, mode=args.mode, repeats=10, summaries=summaries)
 
     if args.mode == 'plot':
 
@@ -120,7 +120,7 @@ def run(args, verbose=False):
         # print(shift_scale)
 
         make_image_load(model, shift_scale["other"], (args.log_ev==1))
-        make_image_load_day(model, shift_scale["other"], (args.log_ev==1))
+        # make_image_load_day(model, shift_scale["other"], (args.log_ev==1))
         make_image_load_z(model, shift_scale["other"], (args.log_ev==1))
 
     if args.mode == 'load':
@@ -134,7 +134,7 @@ def main(call_args=None):
     parser.add_argument('--model', type=str, default='ff', help="model_architecture: ff, lstm")
     parser.add_argument('--z', type=int, default=5, help="Number of latent dimensions")
     parser.add_argument('--num_epochs', type=int, default=10, help="Number of training iterations")
-    parser.add_argument('--run', type=int, default=0, help="Run ID. In case you want to run replicates")
+    parser.add_argument('--run', type=int, default=1, help="Run ID. In case you want to run replicates")
     parser.add_argument('--batch', type=int, default=128, help="Batch size")
     parser.add_argument('--lr', type=float, default=9e-3, help="Learning Rate(initial)")
     parser.add_argument('--warmup', type=int, default=0, help="Fix variance during first epoch of training")

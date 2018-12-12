@@ -15,10 +15,10 @@ import copy
 
 def run(args, verbose=False):
     layout = [
-        ('{:s}',  "gmvae2" if args.k > 1 else "vae2"),
+        ('{:s}',  "vae2"),
         ('{:s}',  args.model),
-        ('x{:02d}',  24 if args.hourly==1 else 96),
-        ('z{:02d}',  args.z),
+        # ('x{:02d}',  24 if args.hourly==1 else 96),
+        # ('z{:02d}',  args.z),
         ('k{:02d}',  args.k),
         ('iw{:02d}',  args.iw),
         ('vp{:02d}',  args.var_pen),
@@ -138,13 +138,13 @@ def run(args, verbose=False):
             val_set,
             run_iwae=True,
             mode=args.mode,
-            repeats=100,
+            repeats=10,
             summaries=copy.deepcopy(summaries)
         )
 
     if args.mode == 'plot':
         make_image_load(model, shift_scale["car"], (args.log_ev==1))
-        make_image_load_day(model, shift_scale["car"], (args.log_ev==1))
+        # make_image_load_day(model, shift_scale["car"], (args.log_ev==1))
         make_image_load_z(model, shift_scale["car"], (args.log_ev==1))
         make_image_load_z_use(model, shift_scale["car"], (args.log_ev==1))
 

@@ -8,7 +8,7 @@ import numpy as np
 def reverse_log_norm(x, shift_scale, log_normal):
     z = shift_scale[1]*x + shift_scale[0]
     if log_normal:
-        z = np.exp(z) - 1e-5
+        z = np.exp(z)
     return z
 
 
@@ -47,7 +47,7 @@ def make_image_load(model, shift_scale, log_car):
                          reverse_log_norm(mu + 1*std, shift_scale, log_car),
                          alpha=0.2, facecolor='b', linewidth=0)
         plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'b')
-    plt.savefig("checkpoints/random_samples_{}.png".format(model.name), dpi=300)
+    plt.savefig("checkpoints/{}/random_samples_{}.png".format(model.name, model.name), dpi=300)
     # plt.suptitle("Random samples from Model ({})".format(model.name))
     # plt.show()
 
@@ -88,7 +88,7 @@ def make_image_load_day(model, shift_scale, log_car):
                              reverse_log_norm(mu + 1*std, shift_scale, log_car),
                              alpha=0.2, facecolor='b', linewidth=0)
             plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'b', alpha=1)
-    plt.savefig("checkpoints/samples_day_{}.png".format(model.name), dpi=300)
+    plt.savefig("checkpoints/{}/samples_day_{}.png".format(model.name, model.name), dpi=300)
     # plt.suptitle("Random samples for days 0-6 ({})".format(model.name))
     # plt.show()
 
@@ -139,7 +139,7 @@ def make_image_load_z(model, shift_scale, log_car, meta=None):
                          alpha=0.2, facecolor='r', linewidth=0)
         plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'r')
 
-    plt.savefig("checkpoints/latent_{}.png".format(model.name), dpi=300)
+    plt.savefig("checkpoints/{}/latent_{}.png".format(model.name, model.name), dpi=300)
     # plt.suptitle("Latent space samples from model {}; blue: y=0, red: y=1".format(model.name))
     # plt.show()
 
@@ -182,7 +182,7 @@ def make_image_load_z_use(model, shift_scale, log_car):
                          alpha=0.2, facecolor='r', linewidth=0)
         plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'r')
 
-    plt.savefig("checkpoints/conditional_use_{}.png".format(model.name), dpi=300)
+    plt.savefig("checkpoints/{}/conditional_use_{}.png".format(model.name, model.name), dpi=300)
     # plt.suptitle("conditional use samples from model {};".format(model.name))
     # plt.show()
 
@@ -191,10 +191,6 @@ def detach_mu_var(mu, var):
     mu = mu.detach().numpy()
     std = np.sqrt(var.detach().numpy())
     return mu, std
-
-
-
-
 
 
 def main():
