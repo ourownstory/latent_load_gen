@@ -131,7 +131,7 @@ def run(args, verbose=False):
 def main(call_args=None):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--mode', type=str, default='train', help="Flag for train, val, test, plot")
-    parser.add_argument('--model', type=str, default='ff', help="model_architecture: ff, lstm")
+    parser.add_argument('--model', type=str, default='ff-s-dec', help="model_architecture: ff, lstm")
     parser.add_argument('--z', type=int, default=5, help="Number of latent dimensions")
     parser.add_argument('--num_epochs', type=int, default=20, help="Number of training iterations")
     parser.add_argument('--run', type=int, default=1, help="Run ID. In case you want to run replicates")
