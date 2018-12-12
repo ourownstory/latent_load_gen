@@ -29,11 +29,9 @@ def run(args, verbose=False):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # cloud
-    root_dir = "../data/data15_final"
-
-    #root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15"
-    #root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
-
+    # root_dir = "../data/data15_final"
+    # Oskar
+    root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
     # Will
     #root_dir = '/Users/willlauer/Desktop/latent_load_gen/data/split'
 

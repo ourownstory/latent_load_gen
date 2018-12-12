@@ -8,7 +8,7 @@ from codebase.models.vae2 import VAE2
 from torch.nn import functional as F
 from HourlyLoadDataset import HourlyLoad2017Dataset
 from ConditionalLoadDataset import ConditionalLoadDataset
-from LoadDataset2 import LoadDataset2
+# from LoadDataset2 import LoadDataset2
 import pandas as pd
 
 
@@ -29,7 +29,7 @@ def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
     mse = mse.sum(-1)
     var_cost = var_cost.sum(-1)
     cost = mse + var_cost
-    # these two last terms would make it a correct log(p), but are not required for MLE
+    # these two last terms make it a correct log(p), but are not required for MLE
     cost += log_2pi * y.size()[-1]
     cost *= 0.5
     return cost, mse, var_cost

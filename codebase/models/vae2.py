@@ -49,7 +49,7 @@ class VAE2(nn.Module):
             return self.negative_iwae_bound_for(x, y, c, iw)
 
     def negative_elbo_bound_for(self, x, y, c):
-        #print(x.shape, y.shape)
+        # print(x.shape, y.shape, c.shape)
         qm, qv = self.enc.encode(x, y=y, c=c)
         # sample z(1) (for monte carlo estimate of p(x|z(1))
         z = ut.sample_gaussian(qm, qv)

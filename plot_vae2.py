@@ -90,7 +90,7 @@ def make_image_load_day(model, shift_scale, log_car):
             plt.plot(reverse_log_norm(mu, shift_scale, log_car), 'b', alpha=1)
     plt.savefig("checkpoints/samples_day_{}.png".format(model.name), dpi=300)
     # plt.suptitle("Random samples for days 0-6 ({})".format(model.name))
-    plt.show()
+    # plt.show()
 
 # Write up section on data/data cleaning
 # Generate plots from before/after cleaning
