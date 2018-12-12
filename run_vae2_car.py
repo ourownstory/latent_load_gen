@@ -10,6 +10,7 @@ from pprint import pprint
 from plot_vae2 import make_image_load, make_image_load_z, make_image_load_z_use, make_image_load_day
 from LoadDataset2 import LoadDataset2
 from collections import OrderedDict
+import copy
 
 
 def run(args, verbose=False):
@@ -31,13 +32,22 @@ def run(args, verbose=False):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # cloud
-    # root_dir = "../data/data15_final"
+    root_dir = "../data/data15_final"
     # Oskar
-    root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
+    # root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
+
     # load train loader anyways - to get correct shift_scale values.
     train_loader = torch.utils.data.DataLoader(
-        LoadDataset2(root_dir=root_dir, mode='train', shift_scale=None, filter_ev=True, log_car=(args.log_ev==1), smooth=args.smooth),
-        batch_size=args.batch, shuffle=True,
+        LoadDataset2(
+            root_dir=root_dir,
+            mode='train',
+            shift_scale=None,
+            filter_ev=True,
+            log_car=(args.log_ev==1),
+            smooth=args.smooth
+        ),
+        batch_size=args.batch,
+        shuffle=True,
     )
     shift_scale = train_loader.dataset.shift_scale
 
@@ -77,8 +87,9 @@ def run(args, verbose=False):
         writer = ut.prepare_writer(model_name, overwrite_existing=True)
 
         # make sure not to train the first VAE
-        for p in model.use_model.parameters():
-            p.requires_grad = False
+        if not (args.finetune == 1):
+            for p in model.use_model.parameters():
+                p.requires_grad = False
 
         train2(
             model=model,
@@ -105,7 +116,7 @@ def run(args, verbose=False):
             smooth=None,
         )
         val_set = {
-            "x": torch.FloatTensor(split_set.other).to(device),
+            "x": torch.FloatTensor(split_set.car).to(device),
             "y": torch.FloatTensor(split_set.meta).to(device),
             "c": torch.FloatTensor(split_set.other).to(device),
         }
@@ -119,15 +130,23 @@ def run(args, verbose=False):
             'lr': args.lr,
             'var_pen': model.var_pen,
         })
-        ut.evaluate_lower_bound2(model, val_set, run_iwae=True, mode=args.mode, repeats=100, summaries=summaries)
 
-        ut.save_latent(model, val_set, mode=args.mode)
+        ut.save_latent(model, val_set, mode=args.mode, is_car_model=True)
+
+        ut.evaluate_lower_bound2(
+            model,
+            val_set,
+            run_iwae=True,
+            mode=args.mode,
+            repeats=100,
+            summaries=copy.deepcopy(summaries)
+        )
 
     if args.mode == 'plot':
-        # make_image_load(model, shift_scale["car"], (args.log_ev==1))
+        make_image_load(model, shift_scale["car"], (args.log_ev==1))
         make_image_load_day(model, shift_scale["car"], (args.log_ev==1))
-        # make_image_load_z(model, shift_scale["car"], (args.log_ev==1))
-        # make_image_load_z_use(model, shift_scale["car"], (args.log_ev==1))
+        make_image_load_z(model, shift_scale["car"], (args.log_ev==1))
+        make_image_load_z_use(model, shift_scale["car"], (args.log_ev==1))
 
     if args.mode == 'load':
         if verbose: print(model)
@@ -152,8 +171,7 @@ def main(call_args=None):
     parser.add_argument('--log_ev', type=int, default=0, help="log-normalize car values")
     parser.add_argument('--hourly', type=int, default=0, help="hourly data instead of 15min resolution data")
     parser.add_argument('--smooth', type=int, default=2, help="0: original data, 1: loess data, 2: random mix")
-    # todo implement:
-    # parser.add_argument('--finetune', type=int, default=0, help="whether to finetune the use-encoder or not")
+    parser.add_argument('--finetune', type=int, default=0, help="whether to finetune the use-encoder or not")
     args = parser.parse_args()
 
     if call_args is not None:
@@ -168,4 +186,7 @@ def main(call_args=None):
 if __name__ == '__main__':
     # model = main()
     model = main({"mode": 'train'})
+    model = main({"mode": 'plot'})
+    model = main({"mode": 'val'})
+    # model = main({"mode": 'test'})
 

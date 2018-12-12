@@ -1,2 +1,0 @@
-epoch,loss,kl_z,rec_mse,rec_var,loss_type,lr,varpen
-1.0000,32.1786,7.9962,109.9206,-237.9921,0.0000,0.0090,1.0000

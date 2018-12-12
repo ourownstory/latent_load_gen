@@ -88,7 +88,7 @@ class Decoder(nn.Module):
         self.regressor = nn.Linear((1+self.BIDIRECTIONAL) * self.HIDDEN_DIM, 2)
 
     def decode(self, z, y=None, c=None):
-        # Note: not designed for IW!!
+        # Note: not designed for IW (without reshaping)
         assert len(z.size()) <= 2
 
         zy = z if y is None else torch.cat((z, y), dim=-1)

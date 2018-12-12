@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from visualize import visualize_data2, visualize_data2_smooth
 
+
 class LoadDataset2(Dataset):
     """hourly aggregate load of a day dataset, with conditionals"""
 
@@ -25,22 +26,10 @@ class LoadDataset2(Dataset):
         self.smooth = None if smooth == 0 else smooth
         # read
 
-        '''
-        # Will's version
-        filepath = '/Users/willlauer/Desktop/latent_load_gen/data/split'
-        self.use = pd.read_csv(filepath + '/' + mode + '/use.csv').values
-        self.car = pd.read_csv(filepath + '/' + mode + '/car.csv').values
-        self.loessUse = pd.read_csv(filepath + '/' + mode + '/loess_use.csv').values
-        self.loessCar = pd.read_csv(filepath + '/' + mode + '/loess_car.csv').values
-        self.meta = pd.read_csv(filepath + '/' + mode + '/meta.csv').astype('float32').values
-
-        '''
         # Oskar's version
-        #self.use = pd.read_csv(os.path.join(self.root_dir, "use.csv")).values
         self.car = pd.read_csv(os.path.join(self.root_dir, "car.csv"), header=None).values
         self.other = pd.read_csv(os.path.join(self.root_dir, "other.csv"), header=None).values
         if self.smooth is not None:
-            #self.loessUse = pd.read_csv(os.path.join(self.root_dir, "loess_use.csv")).values
             self.loessCar = pd.read_csv(os.path.join(self.root_dir, "loess_car.csv"), header=None).values
             self.loessOther = pd.read_csv(os.path.join(self.root_dir, "loess_other.csv"), header=None).values
 
@@ -54,17 +43,13 @@ class LoadDataset2(Dataset):
         if self.smooth is not None:
             # Apply same consistency to the loess smoothed curves
             self.loessCar = np.maximum(self.loessCar, 0)
-            #self.loessUse = np.maximum(self.loessUse, 0)
-            #self.loessOther = self.loessUse - self.loessCar
             self.loessOther = np.maximum(self.loessOther, 0)
 
         # ensure consistency
         self.car = np.maximum(self.car, 0)
         # add:
-        #self.other = self.use - self.car
         # ensure consistency
         self.other = np.maximum(self.other, 0)
-        #self.use = None
 
         if shift_scale is None:
             # we want to get the other shift scale for all entries, as that model is trained such.
@@ -159,13 +144,6 @@ class LoadDataset2(Dataset):
             }
         else:
             raise NotImplementedError
-
-        # Apply loess smoothing to the x entry
-        #x = sample["other"] # batch_size * 96
-        #lx = sample["loessOther"] # batch_size * 96
-        #r = np.expand_dims(np.random.rand(x.shape[0]), 1) # batch_size * 1
-        #smoothedX = (r * x + (1 - r) * lx).float()
-        #sample["other"] = smoothedX
 
         return sample
 

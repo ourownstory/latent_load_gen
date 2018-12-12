@@ -29,9 +29,9 @@ def run(args, verbose=False):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # cloud
-    # root_dir = "../data/data15_final"
+    root_dir = "../data/data15_final"
     # Oskar
-    root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
+    # root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
     # Will
     #root_dir = '/Users/willlauer/Desktop/latent_load_gen/data/split'
 
@@ -70,7 +70,7 @@ def run(args, verbose=False):
             "c": None,
         }
         # maybe in future use Tensorboard?
-        writer = ut.prepare_writer(model_name, overwrite_existing=True)
+        _ = ut.prepare_writer(model_name, overwrite_existing=True)
         train2(
             model=model,
             train_loader=train_loader,
@@ -110,17 +110,17 @@ def run(args, verbose=False):
             'var_pen': model.var_pen,
         })
 
-        #ut.save_latent(model, val_set, mode=args.mode)
+        ut.save_latent(model, val_set, mode=args.mode, is_car_model=False)
 
         ut.evaluate_lower_bound2(model, val_set, run_iwae=True, mode=args.mode, repeats=100, summaries=summaries)
 
     if args.mode == 'plot':
 
-        print(shift_scale["other"])
-        print(shift_scale)
+        # print(shift_scale["other"])
+        # print(shift_scale)
 
         make_image_load(model, shift_scale["other"], (args.log_ev==1))
-        # make_image_load_day(model, shift_scale["other"], (args.log_ev==1))
+        make_image_load_day(model, shift_scale["other"], (args.log_ev==1))
         make_image_load_z(model, shift_scale["other"], (args.log_ev==1))
 
     if args.mode == 'load':
@@ -138,7 +138,7 @@ def main(call_args=None):
     parser.add_argument('--batch', type=int, default=128, help="Batch size")
     parser.add_argument('--lr', type=float, default=9e-3, help="Learning Rate(initial)")
     parser.add_argument('--warmup', type=int, default=0, help="Fix variance during first epoch of training")
-    parser.add_argument('--var_pen', type=int, default=1, help="Penalty for variance - multiplied with var loss term")
+    parser.add_argument('--var_pen', type=int, default=10, help="Penalty for variance - multiplied with var loss term")
     parser.add_argument('--lr_gamma', type=float, default=0.335, help="Anneling factor of lr")
     parser.add_argument('--lr_every', type=int, default=10, help="Number of lr anneling milestones")
     parser.add_argument('--k', type=int, default=1, help="Number mixture components in MoG prior")
@@ -160,7 +160,7 @@ def main(call_args=None):
 if __name__ == '__main__':
     print('main called externally')
     model = main({"mode": 'train'})
-    #model = main({"mode": 'plot'})
+    model = main({"mode": 'plot'})
     model = main({"mode": 'val'})
     # model = main({"mode": 'test'})
 

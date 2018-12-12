@@ -24,14 +24,15 @@ def nlog_prob_normal(mu, y, var=None, fixed_var=False, var_pen=1):
         var_cost = torch.zeros(*y.shape)
     else:
         # return actual log-likelihood
-        mse = torch.div(mse, (var + 1e-5)) * (1.0/var_pen)
-        var_cost = torch.log(var + 1e-5) #* var_pen
+        mse = torch.div(mse, (var + 1e-5))  #* (1.0/var_pen)
+        var_cost = torch.log(var*var_pen + 1)  #* var_pen
+        # var_cost = torch.mul(var, var)
     mse = mse.sum(-1)
     var_cost = var_cost.sum(-1)
     cost = mse + var_cost
     # these two last terms make it a correct log(p), but are not required for MLE
-    cost += log_2pi * y.size()[-1]
-    cost *= 0.5
+    # cost += log_2pi * y.size()[-1]
+    # cost *= 0.5
     return cost, mse, var_cost
 
 
@@ -441,8 +442,17 @@ def get_shift_scale(hourly, log_normal):
     return shift_scale
 
 
-def save_latent(model, val_set, mode, verbose=False):
-    z_mu, z_var = model.enc.encode(**val_set)
+def save_latent(model, val_set, mode, verbose=False, is_car_model=True):
+    if is_car_model:
+        z_use_mu, z_use_var = model.use_model.enc.encode(
+            x=val_set['c'],
+            y=val_set['y'],
+        )
+        c = z_use_mu
+    else:
+        c = val_set['c']
+    z_mu, z_var = model.enc.encode(x=val_set['x'], y=val_set['y'], c=c)
+
     df_mu = pd.DataFrame(
         data=z_mu.detach().numpy(),
         columns=["mu-{:02d}".format(i + 1)for i in range(model.z_dim)],

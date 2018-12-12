@@ -147,6 +147,16 @@ def train2(model, train_loader, val_set, tqdm, lr, lr_gamma, lr_milestone_every,
     i = 0
     epoch = 0
     print_every = 10
+    summaries = OrderedDict({
+        'epoch': 0,
+        'loss': 0,
+        'kl_z': 0,
+        'rec_mse': 0,
+        'rec_var': 0,
+        'loss_type': iw,
+        'lr': optimizer.param_groups[0]['lr'],
+        'varpen': model.var_pen,
+    })
 
     with tqdm(total=num_batches_per_epoch*num_epochs) as pbar:
         while epoch < num_epochs:
@@ -154,16 +164,10 @@ def train2(model, train_loader, val_set, tqdm, lr, lr_gamma, lr_milestone_every,
                 # start learning variance
                 model.warmup = False
 
-            summaries = OrderedDict({
-                'epoch': 0,
-                'loss': 0,
-                'kl_z': 0,
-                'rec_mse': 0,
-                'rec_var': 0,
-                'loss_type': iw,
-                'lr': optimizer.param_groups[0]['lr'],
-                'varpen': model.var_pen,
-            })
+            summaries['loss_type'] = iw
+            summaries['lr'] = optimizer.param_groups[0]['lr']
+            summaries['varpen'] = model.var_pen
+
             for batch_idx, sample in enumerate(train_loader):
                 i += 1  # i is num of gradient steps taken by end of loop iteration
                 optimizer.zero_grad()
@@ -196,12 +200,27 @@ def train2(model, train_loader, val_set, tqdm, lr, lr_gamma, lr_milestone_every,
                 summaries[key] = 0.0
             summaries["epoch"] = epoch + 1
             ut.evaluate_lower_bound2(
-                model, val_set, run_iwae=(iw >= 1), mode='val',
-                verbose=False, summaries=copy.deepcopy(summaries)
+                model,
+                val_set,
+                run_iwae=(iw >= 1),
+                mode='val',
+                verbose=False,
+                summaries=copy.deepcopy(summaries)
             )
 
             epoch += 1
             if epoch % 10 == 0:   # save interim model
                 ut.save_model_by_name(model, epoch)
+
         # save in the end
         ut.save_model_by_name(model, epoch)
+        # model.set_to_eval()
+        # ut.evaluate_lower_bound2(
+        #     model,
+        #     val_set,
+        #     run_iwae=True,
+        #     mode='val',
+        #     verbose=False,
+        #     summaries=copy.deepcopy(summaries),
+        #     repeats=100,
+        # )
