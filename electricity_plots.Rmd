@@ -1,0 +1,635 @@
+---
+title: "Electricity_plots"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+library(tidyverse)
+```
+
+```{r}
+#data
+electricity_data <- "~/Desktop/data_electricity/nice_electricity/"
+colnames <- c("data_id", "date", "load", "ev")
+
+```
+
+```{r}
+electricity <- 
+  list.files(path = electricity_data, full.names = TRUE) %>% 
+  map_dfr(
+    function(x) read_tsv(x, skip = 10, col_names = colnames) 
+  )
+```
+
+```{r}
+nice_data <- 
+  read_csv("~/Desktop/data_electricity/nice_electricity/april_2017.csv", skip = 10, col_names = colnames) %>% 
+  rbind(read_tsv("~/Desktop/data_electricity/nice_electricity/august_2017.txt", skip = 10, col_names = colnames)) %>% 
+  rbind(read_tsv("~/Desktop/data_electricity/nice_electricity/december_2017.txt", skip = 10, col_names = colnames)) %>% 
+  rbind(read_tsv("~/Desktop/data_electricity/nice_electricity/february_2017.txt", skip = 10, col_names = colnames))
+```
+
+```{r}
+nice_data <- 
+  nice_data %>% 
+  mutate(
+    date_day = mdy_hm(date),
+    wday = wday(date_day, label = TRUE),
+    day_of = day(date_day),
+    hour = hour(date_day),
+    minute = minute(date_day),
+    ev = as.integer(ev)
+  ) 
+
+ev_use_day_data_id <- 
+  nice_data %>% 
+  group_by(day_of, data_id) %>% 
+  summarise(sum_ev_use = sum(ev, na.rm = TRUE)) %>% 
+  ungroup()
+
+nice_data <- 
+  nice_data %>% 
+  left_join(ev_use_day_data_id, by = c("day_of", "data_id")) %>% 
+  mutate(ev_use = if_else(sum_ev_use > 1, "yes", "no"))
+```
+
+
+
+```{r}
+nice_data %>% 
+  filter(load < 30) %>% 
+  mutate(time = hour + minute/60) %>% 
+  group_by(time, ev_use) %>% 
+  summarise(median_load = median(load, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  ggplot(aes(time, median_load, color = ev_use)) +
+  geom_line()
+
+nice_data %>% 
+  mutate(time = hour + minute/60) %>% 
+  filter(load < 30) %>% 
+  group_by(time, ev_use) %>% 
+  summarise(avg_load = mean(load, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  ggplot(aes(time, avg_load, color = ev_use)) +
+  geom_line() +
+  labs(
+    x = "Time of Day (Hour)",
+    y = "Average Load (kW)"
+  )
+```
+
+```{r}
+nice_data %>%
+  filter(data_id == 774) %>% 
+  filter(load < 20) %>% 
+  ggplot(aes(load)) +
+  geom_histogram(bins = 100)
+```
+
+
+
+```{r}
+nice_data %>% 
+  mutate(time = hour + minute/60) %>% 
+  filter(load < 30) %>% 
+  group_by(time, ev_use, wday) %>% 
+  summarise(median_load = mean(load, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  ggplot(aes(time, median_load, color = ev_use)) +
+  geom_line() +
+  facet_wrap(~wday) +
+   labs(
+    x = "Time of Day (Hour)",
+    y = "Average Load (kW)"
+  )
+```
+
+
+
+
+
+```{r}
+nice_data %>% 
+  group_by(time, ev_use) %>% 
+  summarise(median_load = median(load, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  ggplot(aes(time, median_load, color = ev_house)) +
+  geom_line()
+```
+
+
+
+```{r}
+nice_data %>% 
+  mutate(day_of = day(date_day)) %>% 
+  mutate(ev = as.integer(ev)) %>% 
+  ggplot(aes(ev)) +
+  geom_histogram()
+```
+
+```{r}
+nice_data %>% 
+  mutate(time = hour + (minute/60)) %>% 
+  group_by(time, ev_house) %>% 
+  summarise(median_load = median(load, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  ggplot(aes(time, median_load, color = ev_house)) +
+  geom_line()
+  
+```
+
+
+#visualizing the latent space
+```{r}
+library(readxl)
+#data
+pecan_survey_data <- "~/Downloads/pecan_surveys.xlsx"
+ev_info_data <- "~/Downloads/ev_data.csv"
+households_data <- "~/Downloads/houseIds.txt"
+val_latent_mu_data <- "~/Downloads/val_latent_mu.csv"
+val_latent_var_data <- "~/Downloads/val_latent_var.csv"
+households_val <- "~/Downloads/houseIdsVal.txt"
+households_train <- "~/Downloads/houseIdsTrain.txt"
+households_test <- "~/Downloads/houseIdsTest.txt"
+
+#read data
+pecan_survey <- read_excel(pecan_survey_data)
+ev_info <- read_csv(ev_info_data)
+households <- read_tsv(households_data, col_names = FALSE)
+val_latent_mu <- read_csv(val_latent_mu_data)
+val_latent_var <- read_csv(val_latent_var_data)
+h_train <- read_tsv(households_train, col_names = FALSE)
+h_test <- read_tsv(households_test, col_names = FALSE)
+h_val <- read_tsv(households_val, col_names = FALSE)
+```
+
+```{r}
+households %>% count(X1) %>% arrange(desc(n))
+```
+
+#plots of latent mu
+```{r}
+val_latent_mu %>% 
+  ggplot(aes(`mu-01`, `mu-02`)) +
+  geom_point(alpha = .4)
+
+val_latent_mu %>% 
+  ggplot(aes(`mu-02`, `mu-03`)) +
+  geom_point(alpha = .4)
+
+val_latent_mu %>% 
+  ggplot(aes(`mu-01`, `mu-03`)) +
+  geom_point(alpha = .4)
+
+val_latent_mu %>% 
+  ggplot(aes(`mu-03`, `mu-04`)) +
+  geom_point(alpha = .4)
+
+val_latent_mu %>% 
+  ggplot(aes(`mu-04`, `mu-05`)) +
+  geom_point(alpha = .4)
+
+```
+
+#plots of latent var
+```{r}
+val_latent_var %>% 
+  ggplot(aes(`var-01`, `var-02`)) +
+  geom_point(alpha = .4)
+```
+
+#plots of latent var with latent mu
+```{r}
+val_latent_var %>% 
+  cbind(val_latent_mu) %>% 
+  ggplot(aes(`var-01`, `mu-01`)) +
+  geom_point(alpha = .4)
+
+```
+
+#pecan survey
+```{r}
+pecan_survey 
+```
+
+#ev_info
+```{r}
+ev_info %>% 
+  count(vehicle_type) %>% 
+  filter(
+    !is.na(vehicle_type), 
+    n > 1
+  ) %>% 
+  mutate(vehicle_type = fct_reorder(vehicle_type, n)) %>% 
+  ggplot(aes(vehicle_type, n)) +
+  geom_col() +
+  labs(
+    x = "Vehicle Type",
+    y = "Count"
+  )
+```
+
+
+
+```{r}
+library(corrplot)
+summaries_train <- read_csv("~/Downloads/some_results/car_vae_12/summaries_train.csv")
+summaries_val <- read_csv("~/Downloads/some_results/car_vae_12/summaries_val.csv")
+#val_mu <- read_csv("~/Downloads/some_results/car_vae_12/val_latent_mu.csv")
+#val_var <- read_csv("~/Downloads/some_results/car_vae_12/val_latent_var.csv")
+val_mu <- read_csv("~/Downloads/vae_results/ev_car/val_latent_mu.csv")
+val_var <- read_csv("~/Downloads/vae_results/ev_car/val_latent_var.csv")
+ev_meta <- read_csv("~/Downloads/ev_metadata.csv")
+```
+
+```{r}
+full_ev1 <- 
+  ev_meta %>% 
+  filter(any_electric_vehicle == "Yes") %>% 
+  mutate(
+    vehicle_chargn_home = str_replace(vehicle_chargn_home, "%", ""),
+    vehicle_chargn_home = as.numeric(vehicle_chargn_home),
+    vehicle_chargn_level2ev = str_replace(vehicle_chargn_level2ev, "%", ""),
+    vehicle_chargn_level2ev = as.numeric(vehicle_chargn_level2ev),
+    vehicle_chargn_public = str_replace(vehicle_chargn_public, "%", ""),
+    vehicle_chargn_public = as.numeric(vehicle_chargn_public),
+    vehicle_chargn_work = str_replace(vehicle_chargn_work, "%", ""),
+    vehicle_chargn_work = as.numeric(vehicle_chargn_work)
+  ) %>% 
+  left_join(
+    h_val %>% 
+    cbind(val_mu) %>% 
+    cbind(val_var),
+    by = c("dataid" = "X1")
+  )
+
+cor_m <- 
+  full_ev1 %>% 
+  select(vehicle_chargn_home : vehicle_chargn_work, `mu-01` : `var-05`) %>% 
+  cor(method = "pearson", use = "complete.obs")
+
+#corrplot(cor_m, method = "circle", type="upper", order="hclust", tl.srt=45)
+```
+
+
+```{r}
+library(viridis)
+cor_m %>% 
+  as.tibble() %>% 
+  mutate(correlated_variable = colnames(cor_m)) %>% 
+  select(correlated_variable, `mu-01` : `var-05`) %>% 
+  filter(correlated_variable %in% c("vehicle_chargn_home", "vehicle_chargn_level2ev", "vehicle_chargn_public", "vehicle_chargn_work")) %>% 
+  gather(-correlated_variable, key = "latent_variable_stat", value = "correlation") %>% 
+  ggplot(aes(correlated_variable, latent_variable_stat, fill = correlation)) +
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 25, hjust = 1)) +
+  labs(
+    x = "Electric Vehicle Variable",
+    y = "Latent Variable Statistic",
+    title = "Correlation of our VAE Latent Space \n with Electric Vehicle characteristics"
+  ) +
+  scale_fill_viridis() 
+```
+
+
+```{r}
+full_ev1 %>% 
+  ggplot(aes(`mu-01`, `mu-02`, color = vehicle_chargn_level2ev)) +
+  geom_point() +
+  scale_color_viridis() 
+  #labs(  title = "EV Latent Spaces and the Percent \nof Level 2 EV Charging")
+
+full_ev1 %>% 
+  ggplot(aes(`mu-01`, `mu-02`, color = vehicle_chargn_home)) +
+  geom_point() +
+  scale_color_viridis() 
+  #labs(title = "EV Latent Spaces and the Percent \nof EV Charging that happens at Home")
+```
+
+
+```{r}
+cor_m %>% 
+  as.tibble() %>% 
+  mutate(correlated_variable = colnames(cor_m)) %>% 
+  select(correlated_variable, `mu-01` : `var-05`) %>% 
+  filter(correlated_variable %in% c("vehicle_chargn_home", "vehicle_chargn_level2ev", "vehicle_chargn_public", "vehicle_chargn_work")) %>% 
+  gather(-correlated_variable, key = "latent_variable_stat", value = "correlation") %>% 
+  arrange(desc(abs(correlation)))
+```
+
+#Calculate the mean of the latent variables and then see how they relate to our covariates
+```{r} 
+mean_latent <- 
+  full_ev1 %>% 
+  group_by(dataid) %>% 
+  summarise(
+    mean_m1 = mean(`mu-01`),
+    mean_m2 = mean(`mu-02`),
+    mean_m3 = mean(`mu-03`),
+    mean_m4 = mean(`mu-04`),
+    mean_m5 = mean(`mu-05`),
+    vehicle_chargn_home = mean(vehicle_chargn_home),
+    vehicle_chargn_level2ev = mean(vehicle_chargn_level2ev),
+    vehicle_chargn_public = mean(vehicle_chargn_public),
+    vehicle_chargn_work = mean(vehicle_chargn_work)
+  ) %>% 
+  ungroup() %>% 
+  filter(!is.na(mean_m1)) %>% 
+  replace(., is.na(.), 0)
+
+cor_mean <- 
+  mean_latent %>% 
+  select(-dataid) %>% 
+  cor(method = "pearson", use = "complete.obs")
+
+corrplot(cor_mean, method = "circle", type="upper", order="hclust", tl.srt=45)
+```
+
+
+#let's look at top 25 and bottom 25 for households and do this same approach
+```{r}
+latent_25_75 <- 
+  full_ev1 %>% 
+  select(dataid, vehicle_chargn_home:vehicle_chargn_work, `mu-01`:`var-05`) %>% 
+  group_by(dataid) %>% 
+  summarise(
+    quant_25_m1 = quantile(`mu-01`, .25, na.rm = TRUE),
+    quant_75_m1 = quantile(`mu-01`, .75, na.rm = TRUE),
+    quant_25_m2 = quantile(`mu-02`, .25, na.rm = TRUE),
+    quant_75_m2 = quantile(`mu-02`, .75, na.rm = TRUE),
+    quant_25_m3 = quantile(`mu-03`, .25, na.rm = TRUE),
+    quant_75_m3 = quantile(`mu-03`, .75, na.rm = TRUE),
+    quant_25_m4 = quantile(`mu-04`, .25, na.rm = TRUE),
+    quant_75_m4 = quantile(`mu-04`, .75, na.rm = TRUE),
+    quant_25_m5 = quantile(`mu-05`, .25, na.rm = TRUE),
+    quant_75_m5 = quantile(`mu-05`, .75, na.rm = TRUE),
+    vehicle_chargn_home = mean(vehicle_chargn_home),
+    vehicle_chargn_level2ev = mean(vehicle_chargn_level2ev),
+    vehicle_chargn_public = mean(vehicle_chargn_public),
+    vehicle_chargn_work = mean(vehicle_chargn_work)
+  ) %>% 
+  ungroup() %>% 
+  filter(!is.na(quant_25_m1)) %>% 
+  replace(., is.na(.), 0)
+
+cor_latent_25_75 <- 
+  latent_25_75 %>% 
+  select(-dataid) %>% 
+  cor(method = "pearson", use = "complete.obs")
+
+corrplot(cor_latent_25_75, method = "circle", type="upper", order="hclust", tl.srt=45)
+```
+
+
+#Now let us do a case study of an individual and their distributions
+
+```{r}
+full_ev1 %>% 
+  count(dataid) %>% 
+  arrange(desc(n)) %>% 
+  left_join(
+    full_ev1 %>% 
+    distinct(dataid, vehicle_chargn_home, vehicle_chargn_work)
+  ) %>% 
+  arrange(desc(n, vehicle_chargn_home))
+```
+
+```{r}
+#household with 100% charging at home
+full_ev1 %>% 
+  filter(dataid == 4336) %>% 
+  select(`mu-01`:`mu-05`) %>% 
+  gather(key = "latent_mu", value = "value") %>% 
+  ggplot(aes(value)) +
+  geom_density() +
+  facet_wrap(~latent_mu, nrow = 5)
+
+
+full_ev1 %>% 
+  filter(dataid == 4336) %>% 
+  select(`mu-01`:`mu-05`) %>% 
+  gather(key = "latent_mu", value = "value") %>% 
+  ggplot(aes(value, fill = latent_mu, color = latent_mu)) +
+  geom_density(alpha = 0.1) +
+  coord_cartesian(xlim = c(-5, 5))
+  #labs(title = "Latent distributions for household that charge 100% at home")
+
+#household with 0% charging at home
+full_ev1 %>% 
+  filter(dataid == 6691) %>% 
+  select(`mu-01`:`mu-05`) %>% 
+  gather(key = "latent_mu", value = "value") %>% 
+  ggplot(aes(value, fill = latent_mu, color = latent_mu)) +
+  geom_density(alpha = 0.1) +
+  coord_cartesian(xlim = c(-5, 5))
+  #labs(title = "Latent distributions for household that charges 0% at home")
+
+#household with 90% charging at work
+full_ev1 %>% 
+  filter(dataid == 26) %>% 
+  select(`mu-01`:`mu-05`) %>% 
+  gather(key = "latent_mu", value = "value") %>% 
+  ggplot(aes(value, fill = latent_mu, color = latent_mu)) +
+  geom_density(alpha = 0.1) +
+  labs(title = "Latent variable distributions for household that charges 90% at work")
+```
+
+
+#Now let us look at our household latent space and household covariates
+
+```{r}
+audit_pecan <- read_csv("~/Documents/audit_pecan.csv")
+#val_mu <- read_csv("~/Downloads/val_latent_mu (1).csv")
+#val_var <- read_csv("~/Downloads/val_latent_var (1).csv")
+
+val_mu <- read_csv("~/Downloads/vae_results/household/val_latent_mu.csv")
+val_var <- read_csv("~/Downloads/vae_results/household/val_latent_var.csv")
+
+house_summary_latent <- 
+  h_val %>% 
+  cbind(val_mu ) %>% 
+  left_join(
+    audit_pecan %>% 
+    group_by(dataid) %>% 
+    summarise(
+      number_of_levels = mean(number_of_levels, na.rm = TRUE),
+      no_bedrooms = mean(no_bedrooms, na.rm = TRUE),
+      conditions_square_foot = mean(conditions_square_foot, na.rm = TRUE),
+      house_volume_cubic_feet = mean(house_volume_cubic_feet, na.rm = TRUE)
+    ) %>% 
+    ungroup(),
+    by = c("X1" = "dataid")
+  ) %>% 
+  filter(!is.na(house_volume_cubic_feet)) 
+
+
+```
+
+
+```{r}
+house_summary_latent %>%
+  select(-X1) %>% 
+  cor(method = "pearson", use = "complete.obs") %>% 
+  corrplot(method = "circle", type="upper", tl.srt=45)
+
+#results show a very strong negative correlation between home size, number of rooms, and our second latent variable mu_02. mu_03 also is negatively associated as well as mu_04.
+```
+
+```{r}
+house_cor <- 
+  house_summary_latent %>%
+  group_by(X1) %>% 
+  summarise(
+    mean_m1 = mean(`mu-01`),
+    mean_m2 = mean(`mu-02`),
+    mean_m3 = mean(`mu-03`),
+    mean_m4 = mean(`mu-04`),
+    mean_m5 = mean(`mu-05`),
+    no_bedrooms = mean(no_bedrooms),
+    number_of_levels = mean(number_of_levels),
+    conditions_square_foot = mean(conditions_square_foot),
+    house_volume_cubic_feet = mean(house_volume_cubic_feet)
+  ) %>% 
+  ungroup() %>% 
+  filter(!is.na(mean_m1)) %>% 
+  replace(., is.na(.), 0) 
+  
+house_cor %>% 
+  select(-X1) %>% 
+  cor(method = "pearson", use = "complete.obs") %>% 
+  as_tibble() %>% 
+  mutate(correlated_variable = colnames(house_cor %>% select(-X1))) %>% 
+  select(correlated_variable, `mean_m1` : `mean_m5`) %>% 
+  filter(correlated_variable %in% c("no_bedrooms", "number_of_levels", "conditions_square_foot", "house_volume_cubic_feet")) %>% 
+  gather(-correlated_variable, key = "latent_variable_stat", value = "correlation") %>% 
+  ggplot(aes(correlated_variable, latent_variable_stat, fill = correlation)) +
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 25, hjust = 1)) +
+  labs(
+    x = "Household Variable",
+    y = "Latent Variable Statistic",
+    title = "Correlation of the Household VAE Latent Space Means \n with House Characteristics"
+  ) +
+  scale_fill_viridis() 
+
+
+```
+
+
+
+#let's look at a big house and a little house
+
+```{r}
+house_summary_latent %>%
+  distinct(X1, conditions_square_foot) %>% 
+  arrange(desc(conditions_square_foot))
+```
+
+```{r}
+#big house with square footage of 4447
+house_summary_latent %>%
+  filter(X1 == 9935) %>% 
+  select(`mu-01`:`mu-05`) %>% 
+  gather(key = "latent_mu", value = "value") %>% 
+  ggplot(aes(value, fill = latent_mu, color = latent_mu)) +
+  geom_density(alpha = 0.1) +
+  coord_cartesian(
+    xlim = c(-5, 5)
+  )
+
+#small house with square footage of 1080
+house_summary_latent %>%
+  filter(X1 == 9609) %>% 
+  select(`mu-01`:`mu-05`) %>% 
+  gather(key = "latent_mu", value = "value") %>% 
+  ggplot(aes(value, fill = latent_mu, color = latent_mu)) +
+  geom_density(alpha = 0.1) +
+  coord_cartesian(
+    xlim = c(-5, 5)
+  ) 
+
+
+#alternative display
+house_summary_latent %>%
+  filter(X1 == 9935) %>% 
+  select(`mu-01`:`mu-05`) %>% 
+  gather(key = "latent_mu", value = "value") %>% 
+  ggplot(aes(value)) +
+  geom_density(alpha = 0.1) +
+  labs(title = "Latent variable mu distributions for largest household (4447 sqft)") +
+  coord_cartesian(
+    xlim = c(-5, 5)
+  ) +
+  facet_wrap(~latent_mu, ncol = 5)
+
+#small house with square footage of 1080
+house_summary_latent %>%
+  filter(X1 == 9609) %>% 
+  select(`mu-01`:`mu-05`) %>% 
+  gather(key = "latent_mu", value = "value") %>% 
+  ggplot(aes(value)) +
+  geom_density(alpha = 0.1) +
+  labs(title = "Latent variable mu distributions for smallest household (1080 sqft)") +
+  coord_cartesian(
+    xlim = c(-5, 5)
+  ) +
+  facet_wrap(~latent_mu, ncol = 5)
+
+```
+
+
+
+
+
+####training and validation loss plots
+#plots for the training and validation
+```{r}
+#EV training
+summaries_train <- read_csv("~/Downloads/vae_results/ev_car/summaries_train.csv")
+summaries_val <- read_csv("~/Downloads/vae_results/ev_car/summaries_val.csv")
+
+summaries_train %>% 
+  mutate(Run = "Train") %>% 
+  rbind(
+    summaries_val %>% 
+    mutate(Run = "Validation") %>% 
+    slice(1:4)
+  ) %>% 
+  ggplot(aes(epoch, loss, color = Run)) +
+  geom_line() +
+  labs(
+    x = "Epoch",
+    y = "Loss",
+    title = "EV Load VAE Training and Validation Loss over Time"
+  )
+
+#house training
+summaries_val2 <- read_csv("~/Downloads/vae_results/household/summaries_val.csv")
+summaries_train2 <- read_csv("~/Downloads/vae_results/household/summaries_val.csv")
+
+summaries_train2 %>% 
+  mutate(Run = "Train") %>% 
+  rbind(
+    summaries_val2 %>% 
+    mutate(Run = "Validation") %>% 
+    slice(1:4)
+  ) %>% 
+  ggplot(aes(epoch, loss, color = Run)) +
+  geom_line() +
+  labs(
+    x = "Epoch",
+    y = "Loss",
+    title = "Overall Household Load VAE Training and Validation Loss over Time"
+  )
+```
+
+
+
+
