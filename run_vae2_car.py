@@ -32,9 +32,9 @@ def run(args, verbose=False):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # cloud
-    root_dir = "../data/data15_final"
+    # root_dir = "../data/data15_final"
     # Oskar
-    # root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
+    root_dir = "../data/CS236/data60/split" if (args.hourly == 1) else "../data/CS236/data15_final"
 
     # load train loader anyways - to get correct shift_scale values.
     train_loader = torch.utils.data.DataLoader(
@@ -164,10 +164,10 @@ def run(args, verbose=False):
 def main(call_args=None):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--mode', type=str, default='train', help="Flag for train, val, test, plot")
-    parser.add_argument('--model', type=str, default='ff-s-dec', help="model_architecture: ff, lstm")
+    parser.add_argument('--model', type=str, default='lstm-s', help="model_architecture: ff, lstm")
     parser.add_argument('--z', type=int, default=5, help="Number of latent dimensions")
-    parser.add_argument('--num_epochs', type=int, default=20, help="Number of training iterations")
-    parser.add_argument('--run', type=int, default=0, help="Run ID. In case you want to run replicates")
+    parser.add_argument('--num_epochs', type=int, default=5, help="Number of training iterations")
+    parser.add_argument('--run', type=int, default=1, help="Run ID. In case you want to run replicates")
     parser.add_argument('--batch', type=int, default=128, help="Batch size")
     parser.add_argument('--lr', type=float, default=3e-3, help="Learning Rate(initial)")
     parser.add_argument('--warmup', type=int, default=1, help="Fix variance during first epoch of training")
@@ -193,8 +193,8 @@ def main(call_args=None):
 
 if __name__ == '__main__':
     # model = main()
-    model = main({"mode": 'train'})
+    # model = main({"mode": 'train'})
     model = main({"mode": 'plot'})
-    model = main({"mode": 'val'})
+    # model = main({"mode": 'val'})
     # model = main({"mode": 'test'})
 

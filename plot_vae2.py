@@ -102,6 +102,7 @@ def make_image_load_z(model, shift_scale, log_car, meta=None):
     model.eval()
     z_dim = model.z_dim
     z_values = [-3, -1, 1, 3]
+    # z_values = [-3, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 3]
     num_sample = z_dim*len(z_values)
 
     # meta = torch.tensor([[61.7, 96.9, 0.00360, 3.00]]).repeat(num_sample, 1)
@@ -128,7 +129,7 @@ def make_image_load_z(model, shift_scale, log_car, meta=None):
         # ax.axis('off')
         # plt.tight_layout()
         # ax.set_title('z = {}'.format(z[i, :].numpy()))
-        plt.ylim((0, 5))
+        plt.ylim((0, 3))
         plt.fill_between(np.arange(model.x_dim),
                          reverse_log_norm(mu - 2 * std, shift_scale, log_car),
                          reverse_log_norm(mu + 2 * std, shift_scale, log_car),
